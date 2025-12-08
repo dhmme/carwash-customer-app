@@ -1,61 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'pages/map_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+
+import 'pages/map_picker.dart';
+import 'pages/worker_bookings_page.dart';  // تأكد أن اسم الملف صحيح
 
 
 // رابط الباك إند
 const String baseUrl = 'http://127.0.0.1:8000';
 
-// نموذج بسيط للخدمات (غسيل كامل / غسيل خارجي)
-class WashOption {
-  final int serviceId;
-  final String name;
-  final String description;
-  final double price;
-  final Color color;
-  final IconData icon;
+// IDs الخدمات في Django
+const int fullWashServiceId = 4; // غسيل كامل
+const int externalWashServiceId = 3; // غسيل خارجي
 
-  WashOption({
-    required this.serviceId,
-    required this.name,
-    required this.description,
-    required this.price,
-    required this.color,
-    required this.icon,
-  });
-}
-
-// الخيارات المتاحة
-final List<WashOption> washOptions = [
-  WashOption(
-    serviceId: 4, // تأكد أن Service ID = 1 في Django (غسيل كامل)
-    name: 'غسيل كامل',
-    description: 'تنظيف داخلي + خارجي + تنشيف وتلميع خارجي بسيط',
-    price: 90,
-    color: Colors.blue,
-    icon: Icons.directions_car,
-  ),
-  WashOption(
-    serviceId: 3, // تأكد أن Service ID = 2 في Django (غسيل خارجي فقط)
-    name: 'غسيل خارجي فقط',
-    description: 'تنظيف الهيكل الخارجي مع تجفيف سريع',
-    price: 50,
-    color: Colors.green,
-    icon: Icons.local_car_wash,
-  ),
-];
-
+// -----------------------------
+// تشغيل تطبيق العملاء
+// -----------------------------
 void main() {
-  runApp(const MyApp());
+  runApp(const CustomerApp());
 }
 
-// ==========================
-// الواجهة الرئيسية
-// ==========================
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class CustomerApp extends StatelessWidget {
+  const CustomerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -67,13 +34,17 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      // هنا واجهة العملاء (مو العمالة)
+      home:  CustomerHomePage(),
     );
   }
 }
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+// -----------------------------
+// الصفحة الرئيسية للعميل
+// ----------------------------- WorkerBookingsPage , CustomerHomePage
+class CustomerHomePage extends StatelessWidget {
+  const CustomerHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +73,7 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'اختَر نوع الغسيل اللي يناسبك',
+                  'اختر الخدمة التي تناسبك',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 16,
@@ -110,15 +81,42 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // الكروت
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: washOptions.length,
-                    itemBuilder: (context, index) {
-                      final option = washOptions[index];
-                      return _WashOptionCard(option: option);
-                    },
-                  ),
+                // بطاقة غسيل السيارات
+                _ServiceCategoryCard(
+                  title: 'غسيل السيارات',
+                  description: 'غسيل كامل أو خارجي مع اختيار حجم السيارة',
+                  icon: Icons.directions_car,
+                  color: Colors.blue.shade300,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BookingPage(),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                // بطاقة (قريباً) لغسيل الأثاث
+                _ServiceCategoryCard(
+                  title: 'غسيل الأثاث (قريباً)',
+                  description: 'قريباً سيتم إضافة غسيل الكنب والسجاد',
+                  icon: Icons.weekend,
+                  color: Colors.grey.shade400,
+                  disabled: true,
+                ),
+
+                const SizedBox(height: 12),
+
+                // بطاقة (قريباً) لغسيل الأحواش
+                _ServiceCategoryCard(
+                  title: 'غسيل الأحواش (قريباً)',
+                  description: 'قريباً سيتم إضافة خدمة غسيل الأحواش',
+                  icon: Icons.house_siding,
+                  color: Colors.grey.shade400,
+                  disabled: true,
                 ),
               ],
             ),
@@ -129,97 +127,91 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _WashOptionCard extends StatelessWidget {
-  final WashOption option;
+class _ServiceCategoryCard extends StatelessWidget {
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+  final bool disabled;
 
-  const _WashOptionCard({required this.option});
+  const _ServiceCategoryCard({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.color,
+    this.onTap,
+    this.disabled = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveOnTap = disabled ? null : onTap;
+
     return GestureDetector(
-      onTap: () {
-        // الانتقال لصفحة الحجز
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BookingPage(option: option),
+      onTap: effectiveOnTap,
+      child: Opacity(
+        opacity: disabled ? 0.5 : 1,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.95),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: option.color.withOpacity(0.1),
-              child: Icon(
-                option.icon,
-                color: option.color,
-                size: 32,
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: color.withOpacity(0.15),
+                child: Icon(icon, color: color, size: 32),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    option.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    option.description,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.black54,
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${option.price.toStringAsFixed(0)} SAR',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: option.color,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-          ],
+              if (!disabled)
+                const Icon(Icons.arrow_forward_ios,
+                    size: 16, color: Colors.grey),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ==========================
-// صفحة الحجز
-// ==========================
-
-
+// -----------------------------
+// صفحة حجز غسيل السيارات
+// -----------------------------
 class BookingPage extends StatefulWidget {
-  final WashOption option;
-
-  const BookingPage({super.key, required this.option});
+  const BookingPage({super.key});
 
   @override
   State<BookingPage> createState() => _BookingPageState();
@@ -227,12 +219,17 @@ class BookingPage extends StatefulWidget {
 
 class _BookingPageState extends State<BookingPage> {
   final _formKey = GlobalKey<FormState>();
+
+  // بيانات العميل
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
 
   bool _isSubmitting = false;
   String? _errorMessage;
   String? _successMessage;
 
+  // التاريخ والأوقات
   late final List<DateTime> _availableDates;
   DateTime? _selectedDate;
 
@@ -255,13 +252,18 @@ class _BookingPageState extends State<BookingPage> {
   ];
 
   String? _selectedTimeSlot;
+  Set<String> _bookedSlots = {};
 
-  // الإحداثيات القادمة من الخريطة
+  // الموقع
   double? _selectedLat;
   double? _selectedLng;
 
-  // الأوقات المحجوزة لليوم المختار
-  Set<String> _bookedSlots = {};
+  // نوع الغسيل وحجم السيارة
+  String _selectedWashType = 'full'; // full أو external
+  String _selectedCarSize = 'small'; // small أو big
+
+  // طريقة الدفع
+  String _selectedPaymentMethod = 'cash'; // apple_pay / google_pay / mada / cash
 
   @override
   void initState() {
@@ -288,6 +290,7 @@ class _BookingPageState extends State<BookingPage> {
     return _formatDate(date);
   }
 
+  // تحميل الأوقات المحجوزة لليوم المحدد
   Future<void> _loadBookedSlotsForSelectedDate() async {
     if (_selectedDate == null) return;
     final dateStr = _formatDate(_selectedDate!);
@@ -311,6 +314,30 @@ class _BookingPageState extends State<BookingPage> {
       }
     } catch (e) {
       debugPrint('Error loading booked slots: $e');
+    }
+  }
+
+  // حساب السعر بناء على نوع الغسيل وحجم السيارة
+  double _calculateTotalPrice() {
+    if (_selectedWashType == 'external') {
+      // غسيل خارجي – سعر ثابت
+      return 25.0;
+    } else {
+      // غسيل كامل – حسب حجم السيارة
+      if (_selectedCarSize == 'big') {
+        return 45.0;
+      } else {
+        return 35.0;
+      }
+    }
+  }
+
+  // إرجاع ID الخدمة حسب نوع الغسيل
+  int _getServiceId() {
+    if (_selectedWashType == 'external') {
+      return externalWashServiceId;
+    } else {
+      return fullWashServiceId;
     }
   }
 
@@ -339,21 +366,28 @@ class _BookingPageState extends State<BookingPage> {
       _successMessage = null;
     });
 
-    const int customerId = 1; // مؤقتاً
-    const int carId = 1; // مؤقتاً
+    // مؤقتاً – إلى أن نربط تسجيل الدخول
+    const int customerId = 1;
+    const int carId = 1;
+
+    final totalPrice = _calculateTotalPrice();
 
     final url = Uri.parse('$baseUrl/api/bookings/');
     final body = {
       'customer': customerId,
       'car': carId,
-      'service': widget.option.serviceId,
-      'address_text': _addressController.text,
+      'service': _getServiceId(),
+      'customer_name': _nameController.text.trim(),
+      'customer_phone': _phoneController.text.trim(),
+      'car_size': _selectedCarSize, // small / big
+      'address_text': _addressController.text.trim(),
       'latitude': _selectedLat,
       'longitude': _selectedLng,
       'date': _formatDate(_selectedDate!),
       'time_slot': _selectedTimeSlot,
       'status': 'pending',
-      'total_price': widget.option.price,
+      'payment_method': _selectedPaymentMethod,
+      'total_price': totalPrice,
     };
 
     try {
@@ -463,11 +497,11 @@ class _BookingPageState extends State<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final option = widget.option;
+    final totalPrice = _calculateTotalPrice();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('حجز: ${option.name}'),
+        title: const Text('حجز غسيل السيارات'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -476,28 +510,103 @@ class _BookingPageState extends State<BookingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                option.name,
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                option.description,
-                style: const TextStyle(color: Colors.black54),
+              // معلومات العميل
+              const Text(
+                'معلومات العميل',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Text(
-                'السعر: ${option.price.toStringAsFixed(0)} SAR',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: option.color,
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'اسم العميل',
+                  border: OutlineInputBorder(),
                 ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'الرجاء إدخال الاسم';
+                  }
+                  return null;
+                },
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'رقم الجوال',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'الرجاء إدخال رقم الجوال';
+                  }
+                  if (val.length < 8) {
+                    return 'رقم الجوال غير صحيح';
+                  }
+                  return null;
+                },
+              ),
+
               const SizedBox(height: 24),
 
-              // العنوان (اختياري إذا حدد موقع)
+              // نوع الغسيل
+              const Text(
+                'اختر نوع الغسيل',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              RadioListTile<String>(
+                title: const Text('غسيل كامل'),
+                value: 'full',
+                groupValue: _selectedWashType,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedWashType = val ?? 'full';
+                  });
+                },
+              ),
+              RadioListTile<String>(
+                title: const Text('غسيل خارجي فقط'),
+                value: 'external',
+                groupValue: _selectedWashType,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedWashType = val ?? 'external';
+                  });
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // حجم السيارة
+              const Text(
+                'اختر حجم السيارة',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              RadioListTile<String>(
+                title: const Text('سيارة صغيرة'),
+                value: 'small',
+                groupValue: _selectedCarSize,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedCarSize = val ?? 'small';
+                  });
+                },
+              ),
+              RadioListTile<String>(
+                title: const Text('سيارة كبيرة'),
+                value: 'big',
+                groupValue: _selectedCarSize,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedCarSize = val ?? 'big';
+                  });
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // العنوان
               TextFormField(
                 controller: _addressController,
                 decoration: const InputDecoration(
@@ -512,9 +621,8 @@ class _BookingPageState extends State<BookingPage> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // زر تحديد الموقع على الخريطة
               ElevatedButton(
                 onPressed: () async {
                   final result = await Navigator.push<LatLng>(
@@ -558,11 +666,63 @@ class _BookingPageState extends State<BookingPage> {
               const SizedBox(height: 16),
               _buildTimeChips('الفترة المسائية', _eveningSlots),
 
-              const SizedBox(height: 12),
-              if (_selectedDate != null)
-                Text('التاريخ المختار: ${_formatDate(_selectedDate!)}'),
-              if (_selectedTimeSlot != null)
-                Text('الوقت المختار: $_selectedTimeSlot'),
+              const SizedBox(height: 16),
+
+              // طريقة الدفع
+              const Text(
+                'طريقة الدفع',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              RadioListTile<String>(
+                title: const Text('Apple Pay'),
+                value: 'apple_pay',
+                groupValue: _selectedPaymentMethod,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedPaymentMethod = val ?? 'apple_pay';
+                  });
+                },
+              ),
+              RadioListTile<String>(
+                title: const Text('Google Pay / Android Pay'),
+                value: 'google_pay',
+                groupValue: _selectedPaymentMethod,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedPaymentMethod = val ?? 'google_pay';
+                  });
+                },
+              ),
+              RadioListTile<String>(
+                title: const Text('مدى Pay'),
+                value: 'mada',
+                groupValue: _selectedPaymentMethod,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedPaymentMethod = val ?? 'mada';
+                  });
+                },
+              ),
+              RadioListTile<String>(
+                title: const Text('كاش عند الوصول'),
+                value: 'cash',
+                groupValue: _selectedPaymentMethod,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedPaymentMethod = val ?? 'cash';
+                  });
+                },
+              ),
+
+              const SizedBox(height: 8),
+              Text(
+                'الإجمالي التقريبي: ${totalPrice.toStringAsFixed(0)} SAR',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
 
               const SizedBox(height: 16),
 
@@ -584,7 +744,7 @@ class _BookingPageState extends State<BookingPage> {
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _submitBooking,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: option.color,
+                    backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -605,5 +765,3 @@ class _BookingPageState extends State<BookingPage> {
     );
   }
 }
-
-
