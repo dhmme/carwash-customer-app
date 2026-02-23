@@ -35,7 +35,7 @@ class CustomerApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // هنا واجهة العملاء (مو العمالة)
-      home:  CustomerHomePage(),
+      home:  WorkerBookingsPage(),
     );
   }
 }
