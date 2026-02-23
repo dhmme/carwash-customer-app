@@ -40513,7 +40513,7 @@ s=p}for(;;)switch(s){case 0:e=n.Q
 if(e==null){s=1
 break}m=n.mf(e)
 p=4
-l=A.fh("http://127.0.0.1:8000/api/booked-slots/?date="+A.m(m))
+l=A.fh("https://carwash-backend-2yz2.onrender.com/api/booked-slots/?date="+A.m(m))
 s=7
 return A.V(A.aS4(l),$async$tf)
 case 7:k=b
@@ -40557,7 +40557,7 @@ break}if(m.ax==null){m.aa(new A.aia(m))
 s=1
 break}m.aa(new A.aib(m))
 f=m.Ml()
-l=A.fh("http://127.0.0.1:8000/api/bookings/")
+l=A.fh("https://carwash-backend-2yz2.onrender.com/api/bookings/")
 a3=m.a9j()
 h=B.c.jg(m.e.a.a)
 e=B.c.jg(m.f.a.a)
