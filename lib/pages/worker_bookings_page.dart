@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
+import '../session.dart';
 
 // رابط الباك إند
 const String baseUrl = 'https://carwash-backend-2yz2.onrender.com';
@@ -54,7 +55,9 @@ class WorkerBooking {
 }
 
 class WorkerBookingsPage extends StatefulWidget {
-  const WorkerBookingsPage({super.key});
+  final VoidCallback? onLogout;
+
+  const WorkerBookingsPage({super.key, this.onLogout});
 
   @override
   State<WorkerBookingsPage> createState() => _WorkerBookingsPageState();
@@ -79,7 +82,7 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
 
     try {
       final url = Uri.parse('$baseUrl/api/worker/bookings/');
-      final res = await http.get(url);
+      final res = await http.get(url, headers: Session.authHeaders);
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as List<dynamic>;
@@ -159,6 +162,21 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
     }
   }
 
+  Future<void> _updateStatus(int bookingId, String status) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/api/worker/bookings/$bookingId/status/'),
+      headers: Session.authHeaders,
+      body: jsonEncode({'status': status}),
+    );
+    if (response.statusCode == 200) {
+      await _loadBookings();
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر تحديث حالة الطلب')),
+      );
+    }
+  }
+
   String _carSizeArabic(String size) {
     if (size == "small") return "سيارة صغيرة";
     if (size == "large") return "سيارة كبيرة";
@@ -183,17 +201,22 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
-                  children: const [
-                    Icon(Icons.handyman, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
+                  children: [
+                    const Icon(Icons.handyman, color: Colors.white),
+                    const SizedBox(width: 8),
+                    const Expanded(child: Text(
                       'حجوزات اليوم للعمّال',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 21,
                         fontWeight: FontWeight.bold,
                       ),
-                    ),
+                    )),
+                    if (widget.onLogout != null)
+                      IconButton(
+                        onPressed: widget.onLogout,
+                        icon: const Icon(Icons.logout, color: Colors.white),
+                      ),
                   ],
                 ),
               ),
@@ -237,6 +260,8 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
                                         booking: b,
                                         onMap: () => _openMap(b.mapsUrl),
                                         onCall: () => _callCustomer(b.customerPhone),
+                                        onStatus: (status) =>
+                                            _updateStatus(b.id, status),
                                       );
                                     },
                                   ),
@@ -255,11 +280,13 @@ class _BookingCard extends StatelessWidget {
   final WorkerBooking booking;
   final VoidCallback onMap;
   final VoidCallback onCall;
+  final ValueChanged<String> onStatus;
 
   const _BookingCard({
     required this.booking,
     required this.onMap,
     required this.onCall,
+    required this.onStatus,
   });
 
   @override
@@ -378,7 +405,31 @@ class _BookingCard extends StatelessWidget {
                   ),
                 ),
               ],
-            )
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: DropdownButtonFormField<String>(
+                initialValue: booking.status,
+                decoration: const InputDecoration(
+                  labelText: 'تحديث حالة الطلب',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'pending', child: Text('بانتظار القبول')),
+                  DropdownMenuItem(value: 'accepted', child: Text('مقبول')),
+                  DropdownMenuItem(value: 'on_the_way', child: Text('في الطريق')),
+                  DropdownMenuItem(value: 'in_progress', child: Text('جاري التنفيذ')),
+                  DropdownMenuItem(value: 'completed', child: Text('مكتمل')),
+                  DropdownMenuItem(value: 'canceled', child: Text('ملغي')),
+                ],
+                onChanged: (value) {
+                  if (value != null && value != booking.status) {
+                    onStatus(value);
+                  }
+                },
+              ),
+            ),
           ],
         ),
       ),

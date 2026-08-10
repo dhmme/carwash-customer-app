@@ -4,25 +4,43 @@ import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'pages/map_picker.dart';
-import 'pages/worker_bookings_page.dart';  // تأكد أن اسم الملف صحيح
+import 'pages/auth_page.dart';
+import 'pages/my_bookings_page.dart';
+import 'session.dart';
 
 
 // رابط الباك إند
 const String baseUrl = 'https://carwash-backend-2yz2.onrender.com';
 
-// IDs الخدمات في Django
-const int fullWashServiceId = 4; // غسيل كامل
-const int externalWashServiceId = 3; // غسيل خارجي
-
 // -----------------------------
 // تشغيل تطبيق العملاء
 // -----------------------------
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Session.load();
   runApp(const CustomerApp());
 }
 
-class CustomerApp extends StatelessWidget {
+class CustomerApp extends StatefulWidget {
   const CustomerApp({super.key});
+
+  @override
+  State<CustomerApp> createState() => _CustomerAppState();
+}
+
+class _CustomerAppState extends State<CustomerApp> {
+  Future<void> _logout() async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/api/auth/logout/'),
+        headers: Session.authHeaders,
+      );
+    } catch (_) {
+      // نمسح الجلسة محلياً حتى لو تعذر الوصول إلى الخادم.
+    }
+    await Session.clear();
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,8 +52,12 @@ class CustomerApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      // هنا واجهة العملاء (مو العمالة)
-      home:  CustomerHomePage(),
+      home: Session.token == null
+          ? AuthPage(
+              baseUrl: baseUrl,
+              onAuthenticated: () => setState(() {}),
+            )
+          : CustomerHomePage(onLogout: _logout),
     );
   }
 }
@@ -44,7 +66,9 @@ class CustomerApp extends StatelessWidget {
 // الصفحة الرئيسية للعميل
 // ----------------------------- WorkerBookingsPage , CustomerHomePage
 class CustomerHomePage extends StatelessWidget {
-  const CustomerHomePage({super.key});
+  final VoidCallback onLogout;
+
+  const CustomerHomePage({super.key, required this.onLogout});
 
   @override
   Widget build(BuildContext context) {
@@ -63,13 +87,35 @@ class CustomerHomePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'مرحباً 👋',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'مرحباً 👋',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'طلباتي',
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const MyBookingsPage(baseUrl: baseUrl),
+                        ),
+                      ),
+                      icon: const Icon(Icons.receipt_long, color: Colors.white),
+                    ),
+                    IconButton(
+                      tooltip: 'تسجيل الخروج',
+                      onPressed: onLogout,
+                      icon: const Icon(Icons.logout, color: Colors.white),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -261,9 +307,10 @@ class _BookingPageState extends State<BookingPage> {
   // نوع الغسيل وحجم السيارة
   String _selectedWashType = 'full'; // full أو external
   String _selectedCarSize = 'small'; // small أو big
+  List<Map<String, dynamic>> _services = [];
 
   // طريقة الدفع
-  String _selectedPaymentMethod = 'cash'; // apple_pay / google_pay / mada / cash
+  String _selectedPaymentMethod = 'cash'; // cash / card / bank_transfer
 
   @override
   void initState() {
@@ -274,6 +321,27 @@ class _BookingPageState extends State<BookingPage> {
     );
     _selectedDate = _availableDates.first;
     _loadBookedSlotsForSelectedDate();
+    _loadServices();
+  }
+
+  Future<void> _loadServices() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/services/'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as List<dynamic>;
+        setState(() => _services = data.cast<Map<String, dynamic>>());
+      }
+    } catch (_) {
+      // سيظهر تنبيه واضح عند محاولة الحجز إذا تعذر تحميل الخدمات.
+    }
+  }
+
+  Map<String, dynamic>? _selectedService() {
+    final keyword = _selectedWashType == 'external' ? 'خارجي' : 'كامل';
+    for (final service in _services) {
+      if (service['name'].toString().contains(keyword)) return service;
+    }
+    return null;
   }
 
   String _formatDate(DateTime date) {
@@ -319,26 +387,11 @@ class _BookingPageState extends State<BookingPage> {
 
   // حساب السعر بناء على نوع الغسيل وحجم السيارة
   double _calculateTotalPrice() {
-    if (_selectedWashType == 'external') {
-      // غسيل خارجي – سعر ثابت
-      return 25.0;
-    } else {
-      // غسيل كامل – حسب حجم السيارة
-      if (_selectedCarSize == 'big') {
-        return 45.0;
-      } else {
-        return 35.0;
-      }
-    }
-  }
-
-  // إرجاع ID الخدمة حسب نوع الغسيل
-  int _getServiceId() {
-    if (_selectedWashType == 'external') {
-      return externalWashServiceId;
-    } else {
-      return fullWashServiceId;
-    }
+    final rawPrice = _selectedService()?['price'];
+    final basePrice = double.tryParse(rawPrice?.toString() ?? '') ?? 0;
+    return _selectedWashType == 'full' && _selectedCarSize == 'big'
+        ? basePrice + 10
+        : basePrice;
   }
 
   Future<void> _submitBooking() async {
@@ -360,23 +413,24 @@ class _BookingPageState extends State<BookingPage> {
       return;
     }
 
+    final selectedService = _selectedService();
+    if (selectedService == null) {
+      setState(() => _errorMessage = 'تعذر تحميل الخدمات، حاول مرة أخرى.');
+      await _loadServices();
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
       _successMessage = null;
     });
 
-    // مؤقتاً – إلى أن نربط تسجيل الدخول
-    const int customerId = 1;
-    const int carId = 1;
-
     final totalPrice = _calculateTotalPrice();
 
     final url = Uri.parse('$baseUrl/api/bookings/');
     final body = {
-      'customer': customerId,
-      'car': carId,
-      'service': _getServiceId(),
+      'service': selectedService['id'],
       'customer_name': _nameController.text.trim(),
       'customer_phone': _phoneController.text.trim(),
       'car_size': _selectedCarSize, // small / big
@@ -393,7 +447,7 @@ class _BookingPageState extends State<BookingPage> {
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: Session.authHeaders,
         body: jsonEncode(body),
       );
 
@@ -674,32 +728,22 @@ class _BookingPageState extends State<BookingPage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               RadioListTile<String>(
-                title: const Text('Apple Pay'),
-                value: 'apple_pay',
+                title: const Text('شبكة عند الوصول'),
+                value: 'card',
                 groupValue: _selectedPaymentMethod,
                 onChanged: (val) {
                   setState(() {
-                    _selectedPaymentMethod = val ?? 'apple_pay';
+                    _selectedPaymentMethod = val ?? 'card';
                   });
                 },
               ),
               RadioListTile<String>(
-                title: const Text('Google Pay / Android Pay'),
-                value: 'google_pay',
+                title: const Text('تحويل بنكي'),
+                value: 'bank_transfer',
                 groupValue: _selectedPaymentMethod,
                 onChanged: (val) {
                   setState(() {
-                    _selectedPaymentMethod = val ?? 'google_pay';
-                  });
-                },
-              ),
-              RadioListTile<String>(
-                title: const Text('مدى Pay'),
-                value: 'mada',
-                groupValue: _selectedPaymentMethod,
-                onChanged: (val) {
-                  setState(() {
-                    _selectedPaymentMethod = val ?? 'mada';
+                    _selectedPaymentMethod = val ?? 'bank_transfer';
                   });
                 },
               ),
