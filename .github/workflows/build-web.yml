@@ -1,0 +1,44 @@
+name: Build Flutter Web
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'build/web/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build customer web app
+        run: flutter build web --release -t lib/main.dart
+
+      - name: Commit generated web files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f build/web
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+          else
+            git commit -m "Build customer Flutter web app [skip ci]"
+            git push origin HEAD:main
+          fi
