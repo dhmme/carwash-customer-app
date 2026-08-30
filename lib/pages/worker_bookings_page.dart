@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import '../session.dart';
+import '../app_theme.dart';
 
 // رابط الباك إند
 const String baseUrl = 'https://carwash-backend-2yz2.onrender.com';
@@ -189,7 +190,7 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)],
+            colors: [AppColors.navy, AppColors.ceruleanDark, AppColors.cerulean],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
