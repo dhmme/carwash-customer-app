@@ -45,6 +45,37 @@ class _VehiclesPageState extends State<VehiclesPage> {
     try { return base64Decode(data.contains(',') ? data.split(',').last : data); } catch (_) { return null; }
   }
 
+  Future<String?> pickVehicle(BuildContext context, String current) async {
+    final search = TextEditingController();
+    return showDialog<String>(context: context, builder: (dialogContext) =>
+      StatefulBuilder(builder: (dialogContext, setSearch) {
+        final query = search.text.trim().toLowerCase();
+        final filtered = popularVehicles.where((name) =>
+          query.isEmpty || name.toLowerCase().contains(query)).toList();
+        return Directionality(textDirection: TextDirection.rtl, child: AlertDialog(
+          title: const Text('اختر نوع السيارة'),
+          content: SizedBox(width: 430, height: 480, child: Column(children: [
+            TextField(controller: search, autofocus: true,
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'ابحث مثلًا: كامري، أكسنت...'),
+              onChanged: (_) => setSearch(() {})),
+            const SizedBox(height: 10),
+            Expanded(child: filtered.isEmpty
+              ? const Center(child: Text('لا توجد نتائج'))
+              : ListView.builder(itemCount: filtered.length, itemBuilder: (_, i) {
+                  final name = filtered[i];
+                  return ListTile(
+                    leading: Icon(name == current ? Icons.check_circle : Icons.directions_car,
+                      color: name == current ? Theme.of(context).colorScheme.primary : null),
+                    title: Text(name),
+                    onTap: () => Navigator.pop(dialogContext, name),
+                  );
+                })),
+          ])),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء'))],
+        ));
+      }));
+  }
+
   Future<void> add() async {
     String category = 'sedan', vehicle = popularVehicles.first;
     final color = TextEditingController(), plate = TextEditingController(), custom = TextEditingController();
@@ -58,9 +89,13 @@ class _VehiclesPageState extends State<VehiclesPage> {
             items: const [DropdownMenuItem(value:'sedan',child:Text('سيدان')), DropdownMenuItem(value:'small_suv',child:Text('جيب صغير')), DropdownMenuItem(value:'family_suv',child:Text('جيب عائلي'))],
             onChanged: (v) => setLocal(() => category = v!)),
           const SizedBox(height: 12),
-          DropdownButtonFormField(value: vehicle, isExpanded: true, decoration: const InputDecoration(labelText: 'نوع السيارة'),
-            items: popularVehicles.map((x) => DropdownMenuItem(value:x, child:Text(x))).toList(),
-            onChanged: (v) => setLocal(() => vehicle = v!)),
+          InkWell(onTap: () async {
+            final selected = await pickVehicle(context, vehicle);
+            if (selected != null) setLocal(() => vehicle = selected);
+          }, child: InputDecorator(
+            decoration: const InputDecoration(labelText: 'نوع السيارة', prefixIcon: Icon(Icons.search)),
+            child: Row(children: [Expanded(child: Text(vehicle)), const Icon(Icons.arrow_drop_down)]),
+          )),
           if (vehicle == 'أخرى') ...[const SizedBox(height: 12), TextField(controller: custom, decoration: const InputDecoration(labelText: 'اكتب نوع السيارة'))],
           const SizedBox(height: 12),
           TextField(controller: color, decoration: const InputDecoration(labelText: 'اللون')),
