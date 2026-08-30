@@ -30,6 +30,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
 
   Future<void> load() async {
     final r = await http.get(Uri.parse('${widget.baseUrl}/api/cars/'), headers: Session.authHeaders);
+    if (r.statusCode == 401) { await Session.handleUnauthorized(); return; }
     if (mounted) setState(() {
       items = r.statusCode == 200 ? (jsonDecode(r.body) as List).cast<Map<String, dynamic>>() : [];
       loading = false;
@@ -118,6 +119,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
       final imageData = photo == null ? '' : 'data:${mime ?? 'image/jpeg'};base64,${base64Encode(photo!)}';
       final response = await http.post(Uri.parse('${widget.baseUrl}/api/cars/'), headers: Session.authHeaders,
         body: jsonEncode({'category':category, 'vehicle_name':name, 'color':color.text.trim(), 'plate_number':plate.text.trim(), 'image_data':imageData}));
+      if (response.statusCode == 401) { await Session.handleUnauthorized(); return; }
       if (!mounted) return;
       if (response.statusCode == 201) {
         final created = jsonDecode(response.body) as Map<String, dynamic>;
