@@ -116,9 +116,21 @@ class _VehiclesPageState extends State<VehiclesPage> {
     final name = vehicle == 'أخرى' ? custom.text.trim() : vehicle;
     if (saved == true && name.isNotEmpty && color.text.trim().isNotEmpty && plate.text.trim().isNotEmpty) {
       final imageData = photo == null ? '' : 'data:${mime ?? 'image/jpeg'};base64,${base64Encode(photo!)}';
-      await http.post(Uri.parse('${widget.baseUrl}/api/cars/'), headers: Session.authHeaders,
+      final response = await http.post(Uri.parse('${widget.baseUrl}/api/cars/'), headers: Session.authHeaders,
         body: jsonEncode({'category':category, 'vehicle_name':name, 'color':color.text.trim(), 'plate_number':plate.text.trim(), 'image_data':imageData}));
-      load();
+      if (!mounted) return;
+      if (response.statusCode == 201) {
+        final created = jsonDecode(response.body) as Map<String, dynamic>;
+        setState(() => items.insert(0, created));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إضافة المركبة')));
+      } else {
+        String message = 'تعذر إضافة المركبة.';
+        try {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          message = data.values.first.toString();
+        } catch (_) {}
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+      }
     }
   }
 
