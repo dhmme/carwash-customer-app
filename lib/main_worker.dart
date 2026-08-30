@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'pages/auth_page.dart';
 import 'pages/worker_bookings_page.dart';
 import 'session.dart';
+import 'app_theme.dart';
 
 const String baseUrl = 'https://carwash-backend-2yz2.onrender.com';
 
@@ -25,6 +26,7 @@ class _WorkerAppState extends State<WorkerApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
       home: Session.token == null
           ? AuthPage(
               baseUrl: baseUrl,
