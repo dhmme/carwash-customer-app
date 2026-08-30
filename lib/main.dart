@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'pages/auth_page.dart';
 import 'pages/customer_home_page.dart';
 import 'session.dart';
+import 'app_theme.dart';
 
 const String baseUrl = 'https://carwash-backend-2yz2.onrender.com';
 
@@ -41,13 +42,7 @@ class _CustomerAppState extends State<CustomerApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Car Wash', debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff1677ff), surface: const Color(0xfff6f8fc)),
-      scaffoldBackgroundColor: const Color(0xfff6f8fc), useMaterial3: true,
-      cardTheme: const CardThemeData(elevation: 0),
-      inputDecorationTheme: InputDecorationTheme(filled: true, fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
-    ),
+    theme: buildAppTheme(),
     home: Session.token == null
       ? AuthPage(baseUrl: baseUrl, onAuthenticated: () => setState(() {}))
       : CustomerHomePage(baseUrl: baseUrl, onLogout: _logout),
