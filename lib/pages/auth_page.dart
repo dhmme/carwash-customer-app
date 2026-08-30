@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../session.dart';
+import '../app_theme.dart';
 
 class AuthPage extends StatefulWidget {
   final String baseUrl;
@@ -84,7 +85,7 @@ class _AuthPageState extends State<AuthPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)],
+            colors: [AppColors.navy, AppColors.ceruleanDark, AppColors.cerulean],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -101,7 +102,7 @@ class _AuthPageState extends State<AuthPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.local_car_wash,
-                          size: 58, color: Colors.blue),
+                          size: 58, color: AppColors.cerulean),
                       const SizedBox(height: 12),
                       Text(
                         _register ? 'إنشاء حساب' : 'تسجيل الدخول',
