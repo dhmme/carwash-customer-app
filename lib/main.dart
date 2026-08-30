@@ -19,6 +19,20 @@ class CustomerApp extends StatefulWidget {
 }
 
 class _CustomerAppState extends State<CustomerApp> {
+  @override
+  void initState() {
+    super.initState();
+    Session.onUnauthorized = () async {
+      if (mounted) setState(() {});
+    };
+  }
+
+  @override
+  void dispose() {
+    Session.onUnauthorized = null;
+    super.dispose();
+  }
+
   Future<void> _logout() async {
     try { await http.post(Uri.parse('$baseUrl/api/auth/logout/'), headers: Session.authHeaders); } catch (_) {}
     await Session.clear();
