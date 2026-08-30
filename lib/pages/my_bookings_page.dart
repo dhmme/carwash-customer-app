@@ -35,6 +35,10 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         Uri.parse('${widget.baseUrl}/api/bookings/'),
         headers: Session.authHeaders,
       );
+      if (response.statusCode == 401) {
+        await Session.handleUnauthorized();
+        return;
+      }
       if (response.statusCode == 200) {
         final list = jsonDecode(response.body) as List<dynamic>;
         setState(() => _bookings = list.cast<Map<String, dynamic>>());
