@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../session.dart';
+import '../app_theme.dart';
 
 const popularVehicles = <String>[
   'تويوتا كامري', 'تويوتا كورولا', 'تويوتا يارس', 'تويوتا أفالون',
@@ -106,7 +107,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
           InkWell(onTap: () async {
             final x = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 65, maxWidth: 900);
             if (x != null) { final bytes = await x.readAsBytes(); setLocal(() { photo = bytes; mime = x.mimeType ?? 'image/jpeg'; }); }
-          }, child: Container(height: 130, width: double.infinity, decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.blue.shade100)),
+          }, child: Container(height: 130, width: double.infinity, decoration: BoxDecoration(color: AppColors.pale, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
             child: photo == null ? const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo_outlined, size: 34), SizedBox(height:6), Text('إضافة صورة (اختياري)')])
               : ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(photo!, fit: BoxFit.cover)))),
         ]))),
@@ -143,7 +144,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
       : ListView.builder(padding:const EdgeInsets.all(16), itemCount:items.length, itemBuilder:(_,i) {
           final v=items[i], bytes=imageBytes(v['image_data']?.toString());
           return Card(margin: const EdgeInsets.only(bottom:12), clipBehavior:Clip.antiAlias, child: Row(children:[
-            SizedBox(width:120,height:110,child:bytes==null?Container(color:Colors.blue.shade50,child:const Icon(Icons.directions_car,size:45,color:Colors.blue)):Image.memory(bytes,fit:BoxFit.cover)),
+            SizedBox(width:120,height:110,child:bytes==null?Container(color:AppColors.pale,child:const Icon(Icons.directions_car,size:45,color:AppColors.cerulean)):Image.memory(bytes,fit:BoxFit.cover)),
             Expanded(child:ListTile(title:Text(v['vehicle_name']?.toString() ?? '${v['brand']} ${v['model']}',style:const TextStyle(fontWeight:FontWeight.bold)),
               subtitle:Text('${categoryLabel(v['category']?.toString())} • ${v['color']}\nاللوحة: ${v['plate_number']}'))),
           ]));
