@@ -119,7 +119,10 @@ class _ManagerPageState extends State<ManagerPage> {
 
   Future<void> _catalogDialog(String type, [Map<String,dynamic>? item]) async {
     final name = TextEditingController(text: item?['name']?.toString() ?? '');
-    final price = TextEditingController(text: (type == 'categories' ? item?['price_adjustment'] : item?['price'])?.toString() ?? '0');
+    final existingPrice = item == null
+        ? null
+        : (type == 'categories' ? item['price_adjustment'] : item['price']);
+    final price = TextEditingController(text: existingPrice?.toString() ?? '0');
     final key = TextEditingController(text: item?['key']?.toString() ?? '');
     final unit = TextEditingController(text: item?['unit']?.toString() ?? 'خدمة');
     bool quantity = item?['allows_quantity'] == true;
