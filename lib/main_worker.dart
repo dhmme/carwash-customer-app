@@ -23,6 +23,20 @@ class WorkerApp extends StatefulWidget {
 
 class _WorkerAppState extends State<WorkerApp> {
   @override
+  void initState() {
+    super.initState();
+    Session.onUnauthorized = () async {
+      if (mounted) setState(() {});
+    };
+  }
+
+  @override
+  void dispose() {
+    Session.onUnauthorized = null;
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,

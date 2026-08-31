@@ -4,13 +4,18 @@ import 'pages/auth_page.dart';
 import 'pages/customer_home_page.dart';
 import 'session.dart';
 import 'app_theme.dart';
+import 'main_worker.dart' as worker;
 
 const String baseUrl = 'https://carwash-backend-2yz2.onrender.com';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Session.load();
-  runApp(const CustomerApp());
+  if (Uri.base.path.startsWith('/worker')) {
+    runApp(const worker.WorkerApp());
+  } else {
+    runApp(const CustomerApp());
+  }
 }
 
 class CustomerApp extends StatefulWidget {
