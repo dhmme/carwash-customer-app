@@ -53,8 +53,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   }
 
   String _status(String value) => switch (value) {
-        'pending' => 'بانتظار الموافقة',
-        'accepted' => 'تمت الموافقة',
+        'pending' => 'الحجز مؤكد',
+        'accepted' => 'الحجز مؤكد',
         'on_the_way' => 'العامل في الطريق',
         'in_progress' => 'جاري الغسيل',
         'completed' => 'مكتمل',

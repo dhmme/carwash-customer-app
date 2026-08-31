@@ -84,12 +84,11 @@ class _BookingCard extends StatelessWidget {
   final ValueChanged<String> onStatus;
   final VoidCallback onCall, onMap;
   const _BookingCard({required this.booking, required this.onStatus, required this.onCall, required this.onMap});
-  static const names = {'pending':'بانتظار القبول','accepted':'تم القبول','on_the_way':'في الطريق','in_progress':'قيد التنفيذ','completed':'مكتمل','canceled':'ملغي'};
-  static const next = {'pending':('accepted','قبول الطلب'),'accepted':('on_the_way','بدء التوجه'),'on_the_way':('in_progress','بدء الغسيل'),'in_progress':('completed','إنهاء الطلب')};
+  static const names = {'pending':'مؤكد','accepted':'مؤكد','on_the_way':'مؤكد','in_progress':'مؤكد','completed':'مكتمل','canceled':'ملغي'};
   Widget info(IconData icon, String value) => Padding(padding: const EdgeInsets.only(top: 8), child: Row(children: [Icon(icon,size:19),const SizedBox(width:8),Expanded(child:Text(value))]));
 
   @override Widget build(BuildContext context) {
-    final action = next[booking.status];
+    final canComplete = booking.status != 'completed' && booking.status != 'canceled';
     return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [Text(booking.timeSlot,style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold)),const Spacer(),Chip(label:Text(names[booking.status] ?? booking.status))]),
       info(Icons.person,'${booking.customerName} — ${booking.customerPhone}'),
@@ -100,8 +99,7 @@ class _BookingCard extends StatelessWidget {
       info(Icons.payments,'${booking.totalPrice} ر.س • ${booking.paymentMethod}'),
       const SizedBox(height:14),
       Row(children:[Expanded(child:OutlinedButton.icon(onPressed:booking.customerPhone.isEmpty?null:onCall,icon:const Icon(Icons.phone),label:const Text('اتصال'))),const SizedBox(width:8),Expanded(child:OutlinedButton.icon(onPressed:booking.mapsUrl.isEmpty?null:onMap,icon:const Icon(Icons.navigation),label:const Text('الموقع')))]),
-      if(action!=null)...[const SizedBox(height:10),SizedBox(width:double.infinity,child:FilledButton(onPressed:()=>onStatus(action.$1),child:Text(action.$2)))],
-      if(booking.status!='completed'&&booking.status!='canceled') Align(alignment:Alignment.center,child:TextButton(onPressed:()=>onStatus('canceled'),child:const Text('إلغاء الطلب'))),
+      if(canComplete)...[const SizedBox(height:10),SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:()=>onStatus('completed'),icon:const Icon(Icons.check_circle),label:const Text('تم الانتهاء من الغسيل')))],
     ])));
   }
 }
