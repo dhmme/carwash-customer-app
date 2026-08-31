@@ -5,13 +5,16 @@ import 'pages/customer_home_page.dart';
 import 'session.dart';
 import 'app_theme.dart';
 import 'main_worker.dart' as worker;
+import 'main_manager.dart' as manager;
 
 const String baseUrl = 'https://carwash-backend-2yz2.onrender.com';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Session.load();
-  if (Uri.base.path.startsWith('/worker')) {
+  if (Uri.base.path.startsWith('/manager')) {
+    runApp(const manager.ManagerApp());
+  } else if (Uri.base.path.startsWith('/worker')) {
     runApp(const worker.WorkerApp());
   } else {
     runApp(const CustomerApp());

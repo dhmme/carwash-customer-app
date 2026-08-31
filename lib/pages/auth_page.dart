@@ -11,6 +11,7 @@ class AuthPage extends StatefulWidget {
   final VoidCallback onAuthenticated;
   final bool allowRegister;
   final bool requireStaff;
+  final bool requireManager;
 
   const AuthPage({
     super.key,
@@ -18,6 +19,7 @@ class AuthPage extends StatefulWidget {
     required this.onAuthenticated,
     this.allowRegister = true,
     this.requireStaff = false,
+    this.requireManager = false,
   });
 
   @override
@@ -58,6 +60,10 @@ class _AuthPageState extends State<AuthPage> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (widget.requireStaff && data['is_staff'] != true) {
           setState(() => _error = 'هذا الحساب غير مصرح له بدخول العمال.');
+          return;
+        }
+        if (widget.requireManager && data['is_superuser'] != true) {
+          setState(() => _error = 'هذا الحساب غير مصرح له بدخول الإدارة.');
           return;
         }
         await Session.saveToken(data['token'] as String);

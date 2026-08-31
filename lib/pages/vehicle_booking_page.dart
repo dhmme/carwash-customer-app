@@ -9,7 +9,7 @@ import '../app_theme.dart';
 
 class VehicleBookingPage extends StatefulWidget { final String baseUrl; const VehicleBookingPage({super.key,required this.baseUrl}); @override State<VehicleBookingPage> createState()=>_VehicleBookingPageState(); }
 class _VehicleBookingPageState extends State<VehicleBookingPage>{
-  bool loading=true, slotsLoading=false; List<Map<String,dynamic>> locations=[],cars=[],services=[],addOns=[]; Set<String> booked={};
+  bool loading=true, slotsLoading=false; List<Map<String,dynamic>> locations=[],cars=[],services=[],addOns=[],categories=[]; Set<String> booked={};
   final Map<int,int> addOnQuantities={};
   late List<DateTime> dates; late DateTime date; Map<String,dynamic>? location,car,service; String? time; Map<String,dynamic>? currentLocation;
   final slots=['9 صباحاً','10 صباحاً','11 صباحاً','4 مساءً','5 مساءً','6 مساءً','7 مساءً','8 مساءً','9 مساءً','10 مساءً','11 مساءً','12 مساءً'];
@@ -20,13 +20,14 @@ class _VehicleBookingPageState extends State<VehicleBookingPage>{
     http.get(Uri.parse('${widget.baseUrl}/api/locations/'),headers:Session.authHeaders),
     http.get(Uri.parse('${widget.baseUrl}/api/cars/'),headers:Session.authHeaders),
     http.get(Uri.parse('${widget.baseUrl}/api/services/')),
-    http.get(Uri.parse('${widget.baseUrl}/api/add-ons/'))]);
+    http.get(Uri.parse('${widget.baseUrl}/api/add-ons/')),
+    http.get(Uri.parse('${widget.baseUrl}/api/vehicle-categories/'))]);
     if(rs[0].statusCode==401||rs[1].statusCode==401){await Session.handleUnauthorized();return;}
-    if(mounted)setState((){locations=rs[0].statusCode==200?(jsonDecode(rs[0].body)as List).cast<Map<String,dynamic>>():[];cars=rs[1].statusCode==200?(jsonDecode(rs[1].body)as List).cast<Map<String,dynamic>>():[];services=rs[2].statusCode==200?(jsonDecode(rs[2].body)as List).cast<Map<String,dynamic>>():[];addOns=rs[3].statusCode==200?(jsonDecode(rs[3].body)as List).cast<Map<String,dynamic>>():[];loading=false;});await loadSlots();}
+    if(mounted)setState((){locations=rs[0].statusCode==200?(jsonDecode(rs[0].body)as List).cast<Map<String,dynamic>>():[];cars=rs[1].statusCode==200?(jsonDecode(rs[1].body)as List).cast<Map<String,dynamic>>():[];services=rs[2].statusCode==200?(jsonDecode(rs[2].body)as List).cast<Map<String,dynamic>>():[];addOns=rs[3].statusCode==200?(jsonDecode(rs[3].body)as List).cast<Map<String,dynamic>>():[];categories=rs[4].statusCode==200?(jsonDecode(rs[4].body)as List).cast<Map<String,dynamic>>():[];loading=false;});await loadSlots();}
   Future<void> loadSlots()async{setState((){slotsLoading=true;time=null;});final r=await http.get(Uri.parse('${widget.baseUrl}/api/booked-slots/?date=${iso(date)}'));if(mounted)setState((){booked=r.statusCode==200?Set<String>.from(jsonDecode(r.body)['booked']):{};slotsLoading=false;});}
   Future<void> useCurrent()async{try{var p=await Geolocator.checkPermission();if(p==LocationPermission.denied)p=await Geolocator.requestPermission();if(p==LocationPermission.denied||p==LocationPermission.deniedForever)return;final x=await Geolocator.getCurrentPosition();setState((){currentLocation={'id':null,'name':'الموقع الحالي','address_text':'الموقع الحالي','latitude':x.latitude,'longitude':x.longitude};location=currentLocation;});}catch(_){if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('تعذر تحديد الموقع الحالي')));}}
   List<Map<String,dynamic>> selectedAddOns()=>addOns.where((x)=>(addOnQuantities[x['id']]??0)>0).map((x)=>{'id':x['id'],'name':x['name'],'unit':x['unit'],'price':x['price'],'quantity':addOnQuantities[x['id']]!}).toList();
-  double total(){double value=double.tryParse(service?['price']?.toString()??'0')??0;if(service?['name'].toString().contains('كامل')==true&&car?['size']=='big')value+=10;for(final x in selectedAddOns()){value+=(double.tryParse(x['price'].toString())??0)*(x['quantity'] as int);}return value;}
+  double total(){double value=double.tryParse(service?['price']?.toString()??'0')??0;for(final c in categories){if(c['key']==car?['category'])value+=double.tryParse(c['price_adjustment'].toString())??0;}for(final x in selectedAddOns()){value+=(double.tryParse(x['price'].toString())??0)*(x['quantity'] as int);}return value;}
   void next(){if(location==null||car==null||service==null||time==null){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('أكمل اختيار الموقع والمركبة والخدمة والوقت')));return;}Navigator.push(context,MaterialPageRoute(builder:(_)=>PaymentPage(baseUrl:widget.baseUrl,location:location!,car:car!,service:service!,addOns:selectedAddOns(),total:total(),date:iso(date),time:time!)));}
   @override Widget build(BuildContext context)=>Directionality(textDirection:TextDirection.rtl,child:Scaffold(appBar:AppBar(title:const Text('غسيل السيارات')),body:loading?const Center(child:CircularProgressIndicator()):ListView(padding:const EdgeInsets.all(16),children:[
     _title('اختر اليوم'),Wrap(spacing:8,runSpacing:8,children:dates.map((d)=>ChoiceChip(selected:date==d,label:Text('${day(d)}\n${d.day}/${d.month}',textAlign:TextAlign.center),onSelected:(_){setState(()=>date=d);loadSlots();})).toList()),

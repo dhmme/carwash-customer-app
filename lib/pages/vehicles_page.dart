@@ -27,20 +27,31 @@ class VehiclesPage extends StatefulWidget {
 class _VehiclesPageState extends State<VehiclesPage> {
   bool loading = true;
   List<Map<String, dynamic>> items = [];
+  List<Map<String, dynamic>> categories = [
+    {'key':'sedan','name':'سيدان'}, {'key':'small_suv','name':'جيب صغير'}, {'key':'family_suv','name':'جيب عائلي'},
+  ];
   @override void initState() { super.initState(); load(); }
 
   Future<void> load() async {
-    final r = await http.get(Uri.parse('${widget.baseUrl}/api/cars/'), headers: Session.authHeaders);
+    final responses = await Future.wait([
+      http.get(Uri.parse('${widget.baseUrl}/api/cars/'), headers: Session.authHeaders),
+      http.get(Uri.parse('${widget.baseUrl}/api/vehicle-categories/')),
+    ]);
+    final r = responses[0], categoryResponse = responses[1];
     if (r.statusCode == 401) { await Session.handleUnauthorized(); return; }
     if (mounted) setState(() {
       items = r.statusCode == 200 ? (jsonDecode(r.body) as List).cast<Map<String, dynamic>>() : [];
+      if (categoryResponse.statusCode == 200) categories = (jsonDecode(categoryResponse.body) as List).cast<Map<String,dynamic>>();
       loading = false;
     });
   }
 
-  String categoryLabel(String? value) => switch (value) {
-    'small_suv' => 'جيب صغير', 'family_suv' => 'جيب عائلي', _ => 'سيدان',
-  };
+  String categoryLabel(String? value) {
+    for (final category in categories) {
+      if (category['key'] == value) return category['name'].toString();
+    }
+    return value ?? 'غير محدد';
+  }
 
   Uint8List? imageBytes(String? data) {
     if (data == null || data.isEmpty) return null;
@@ -79,7 +90,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
   }
 
   Future<void> add() async {
-    String category = 'sedan', vehicle = popularVehicles.first;
+    String category = categories.isEmpty ? 'sedan' : categories.first['key'].toString(), vehicle = popularVehicles.first;
     final color = TextEditingController(), plate = TextEditingController(), custom = TextEditingController();
     Uint8List? photo;
     String? mime;
@@ -88,7 +99,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
         title: const Text('إضافة مركبة'),
         content: SizedBox(width: 440, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           DropdownButtonFormField(value: category, decoration: const InputDecoration(labelText: 'فئة السيارة'),
-            items: const [DropdownMenuItem(value:'sedan',child:Text('سيدان')), DropdownMenuItem(value:'small_suv',child:Text('جيب صغير')), DropdownMenuItem(value:'family_suv',child:Text('جيب عائلي'))],
+            items: categories.map((x) => DropdownMenuItem(value:x['key'].toString(),child:Text(x['name'].toString()))).toList(),
             onChanged: (v) => setLocal(() => category = v!)),
           const SizedBox(height: 12),
           InkWell(onTap: () async {
