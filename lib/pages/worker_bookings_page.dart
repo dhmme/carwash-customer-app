@@ -226,7 +226,7 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
                   decoration: const BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                   ),
                   child: RefreshIndicator(
@@ -246,7 +246,7 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
                                       'لا يوجد حجوزات لليوم 👌',
                                       style: TextStyle(
                                         fontSize: 16,
-                                        color: Colors.black54,
+                                        color: AppColors.muted,
                                       ),
                                     ),
                                   )
@@ -292,7 +292,7 @@ class _BookingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = Colors.black87;
+    final statusColor = AppColors.text;
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -314,7 +314,7 @@ class _BookingCard extends StatelessWidget {
                 const Spacer(),
                 Text(
                   booking.date,
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
               ],
             ),
@@ -323,7 +323,7 @@ class _BookingCard extends StatelessWidget {
             // اسم العميل
             Row(
               children: [
-                const Icon(Icons.person, size: 20, color: Colors.black54),
+                const Icon(Icons.person, size: 20, color: AppColors.muted),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -343,7 +343,7 @@ class _BookingCard extends StatelessWidget {
             // حجم السيارة
             Row(
               children: [
-                const Icon(Icons.directions_car, size: 20, color: Colors.black54),
+                const Icon(Icons.directions_car, size: 20, color: AppColors.muted),
                 const SizedBox(width: 6),
                 Text(
                   booking.carSize == "small"
@@ -360,7 +360,7 @@ class _BookingCard extends StatelessWidget {
             // رقم الجوال
             Row(
               children: [
-                const Icon(Icons.phone, size: 20, color: Colors.black54),
+                const Icon(Icons.phone, size: 20, color: AppColors.muted),
                 const SizedBox(width: 6),
                 Text(
                   booking.customerPhone.isEmpty
@@ -376,7 +376,7 @@ class _BookingCard extends StatelessWidget {
             Row(
               children: [
                 const Icon(Icons.local_car_wash,
-                    size: 20, color: Colors.black54),
+                    size: 20, color: AppColors.muted),
                 const SizedBox(width: 6),
                 Text(
                   booking.serviceName,

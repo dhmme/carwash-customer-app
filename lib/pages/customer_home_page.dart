@@ -42,10 +42,10 @@ class _Item { final String title, subtitle; final IconData icon; final Color col
 class _Card extends StatelessWidget {
   final _Item item; const _Card({required this.item});
   @override Widget build(BuildContext context) => InkWell(borderRadius: BorderRadius.circular(22), onTap: item.tap,
-    child: Ink(padding: const EdgeInsets.all(18), decoration: BoxDecoration(color: Colors.white,
+    child: Ink(padding: const EdgeInsets.all(18), decoration: BoxDecoration(color: AppColors.surface,
       borderRadius: BorderRadius.circular(22), border: Border.all(color: AppColors.border)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         CircleAvatar(radius: 28, backgroundColor: item.color.withValues(alpha: .12), child: Icon(item.icon, color: item.color, size: 30)),
         const Spacer(), Text(item.title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 5), Text(item.subtitle, style: const TextStyle(color: Colors.black54))])));
+        const SizedBox(height: 5), Text(item.subtitle, style: const TextStyle(color: AppColors.muted))])));
 }

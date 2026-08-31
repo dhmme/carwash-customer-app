@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const cerulean = Color(0xFF007BA7);
-  static const ceruleanDark = Color(0xFF075A78);
-  static const navy = Color(0xFF04364A);
-  static const sky = Color(0xFF54B9D3);
-  static const ice = Color(0xFFF3F9FB);
-  static const pale = Color(0xFFE5F3F7);
-  static const border = Color(0xFFD5E8EE);
-  static const text = Color(0xFF17343F);
+  static const cerulean = Color(0xFF20A7D1);
+  static const ceruleanDark = Color(0xFF087EA4);
+  static const navy = Color(0xFF041F2A);
+  static const sky = Color(0xFF66C6DF);
+  static const ice = Color(0xFF071E28);
+  static const pale = Color(0xFF123B4A);
+  static const surface = Color(0xFF0D2D3A);
+  static const border = Color(0xFF215364);
+  static const text = Color(0xFFEAF7FA);
+  static const muted = Color(0xFFA9CBD5);
 }
 
 ThemeData buildAppTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: AppColors.cerulean,
-    brightness: Brightness.light,
-    primary: AppColors.ceruleanDark,
+    brightness: Brightness.dark,
+    primary: AppColors.cerulean,
     secondary: AppColors.cerulean,
-    surface: Colors.white,
+    surface: AppColors.surface,
   );
   return ThemeData(
     colorScheme: scheme,
@@ -30,7 +32,7 @@ ThemeData buildAppTheme() {
       centerTitle: false,
     ),
     cardTheme: CardThemeData(
-      color: Colors.white,
+      color: AppColors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
@@ -39,8 +41,8 @@ ThemeData buildAppTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
-      labelStyle: const TextStyle(color: AppColors.ceruleanDark),
+      fillColor: AppColors.surface,
+      labelStyle: const TextStyle(color: AppColors.sky),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: AppColors.border),
@@ -53,20 +55,30 @@ ThemeData buildAppTheme() {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.ceruleanDark,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.cerulean,
+        foregroundColor: AppColors.navy,
         minimumSize: const Size(0, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: AppColors.ceruleanDark,
-      foregroundColor: Colors.white,
+      backgroundColor: AppColors.cerulean,
+      foregroundColor: AppColors.navy,
     ),
     textTheme: const TextTheme(
       bodyLarge: TextStyle(color: AppColors.text),
       bodyMedium: TextStyle(color: AppColors.text),
-      titleLarge: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold),
+      titleLarge: TextStyle(color: AppColors.text, fontWeight: FontWeight.bold),
+      bodySmall: TextStyle(color: AppColors.muted),
+    ),
+    dividerColor: AppColors.border,
+    iconTheme: const IconThemeData(color: AppColors.sky),
+    chipTheme: ChipThemeData(
+      backgroundColor: AppColors.pale,
+      selectedColor: AppColors.ceruleanDark,
+      side: const BorderSide(color: AppColors.border),
+      labelStyle: const TextStyle(color: AppColors.text),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
   );
 }
