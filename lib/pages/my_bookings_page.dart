@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../session.dart';
 
@@ -71,6 +72,27 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         _ => Colors.orange,
       };
 
+  Future<void> _openInvoice(String url) async {
+    try {
+      final opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.platformDefault,
+        webOnlyWindowName: '_blank',
+      );
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر فتح الفاتورة. حاول مرة أخرى.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر فتح الفاتورة. حاول مرة أخرى.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,6 +118,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                         itemBuilder: (_, index) {
                           final booking = _bookings[index];
                           final status = booking['status']?.toString() ?? '';
+                          final invoiceUrl =
+                              booking['invoice_url']?.toString() ?? '';
                           return Card(
                             child: ListTile(
                               leading: CircleAvatar(
@@ -110,7 +134,35 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                                 '${_status(status)}',
                               ),
                               isThreeLine: true,
-                              trailing: Text('${booking['total_price']} ر.س'),
+                              trailing: SizedBox(
+                                width: 115,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text('${booking['total_price']} ر.س'),
+                                    const SizedBox(height: 5),
+                                    if (invoiceUrl.isNotEmpty &&
+                                        status != 'canceled')
+                                      OutlinedButton.icon(
+                                        onPressed: () =>
+                                            _openInvoice(invoiceUrl),
+                                        icon: const Icon(
+                                          Icons.receipt_long_outlined,
+                                          size: 17,
+                                        ),
+                                        label: const Text('الفاتورة'),
+                                        style: OutlinedButton.styleFrom(
+                                          visualDensity: VisualDensity.compact,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 5,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
                           );
                         },
