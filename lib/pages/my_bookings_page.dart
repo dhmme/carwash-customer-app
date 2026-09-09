@@ -53,24 +53,32 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
   }
 
-  String _status(String value) => switch (value) {
-        'pending' => 'الحجز مؤكد',
-        'accepted' => 'الحجز مؤكد',
-        'on_the_way' => 'العامل في الطريق',
-        'in_progress' => 'جاري الغسيل',
-        'completed' => 'مكتمل',
-        'canceled' => 'ملغي',
-        _ => value,
-      };
+  String _status(String value, String paymentStatus) => switch (value) {
+    'pending' when paymentStatus == 'pending' => 'بانتظار الدفع',
+    'pending' => 'الحجز قيد المعالجة',
+    'accepted' => 'الحجز مؤكد',
+    'on_the_way' => 'العامل في الطريق',
+    'in_progress' => 'جاري الغسيل',
+    'completed' => 'مكتمل',
+    'canceled' => 'ملغي',
+    _ => value,
+  };
+
+  String _paymentStatus(String value) => switch (value) {
+    'paid' => 'مدفوع إلكترونيًا',
+    'failed' => 'فشل الدفع',
+    'expired' => 'انتهت مهلة الدفع',
+    _ => '',
+  };
 
   Color _statusColor(String value) => switch (value) {
-        'accepted' => Colors.blue,
-        'on_the_way' => Colors.indigo,
-        'in_progress' => Colors.green,
-        'completed' => Colors.teal,
-        'canceled' => Colors.red,
-        _ => Colors.orange,
-      };
+    'accepted' => Colors.blue,
+    'on_the_way' => Colors.indigo,
+    'in_progress' => Colors.green,
+    'completed' => Colors.teal,
+    'canceled' => Colors.red,
+    _ => Colors.orange,
+  };
 
   Future<void> _openInvoice(String url) async {
     try {
@@ -93,6 +101,27 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
   }
 
+  Future<void> _openCheckout(String url) async {
+    try {
+      final opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.platformDefault,
+        webOnlyWindowName: '_self',
+      );
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر فتح صفحة الدفع. حاول مرة أخرى.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر فتح صفحة الدفع. حاول مرة أخرى.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -102,71 +131,96 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? ListView(children: [
-                    const SizedBox(height: 180),
-                    Center(child: Text(_error!)),
-                  ])
-                : _bookings.isEmpty
-                    ? ListView(children: const [
-                        SizedBox(height: 180),
-                        Center(child: Text('لا توجد طلبات حتى الآن')),
-                      ])
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _bookings.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (_, index) {
-                          final booking = _bookings[index];
-                          final status = booking['status']?.toString() ?? '';
-                          final invoiceUrl =
-                              booking['invoice_url']?.toString() ?? '';
-                          return Card(
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: _statusColor(status),
-                                child: const Icon(Icons.local_car_wash,
-                                    color: Colors.white),
-                              ),
-                              title: Text(booking['service_name']?.toString() ??
-                                  'غسيل سيارات'),
-                              subtitle: Text(
-                                '${booking['date']} • ${booking['time_slot']}\n'
-                                '${_status(status)}',
-                              ),
-                              isThreeLine: true,
-                              trailing: SizedBox(
-                                width: 115,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text('${booking['total_price']} ر.س'),
-                                    const SizedBox(height: 5),
-                                    if (invoiceUrl.isNotEmpty &&
-                                        status != 'canceled')
-                                      OutlinedButton.icon(
-                                        onPressed: () =>
-                                            _openInvoice(invoiceUrl),
-                                        icon: const Icon(
-                                          Icons.receipt_long_outlined,
-                                          size: 17,
-                                        ),
-                                        label: const Text('الفاتورة'),
-                                        style: OutlinedButton.styleFrom(
-                                          visualDensity: VisualDensity.compact,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 5,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
+            ? ListView(
+                children: [
+                  const SizedBox(height: 180),
+                  Center(child: Text(_error!)),
+                ],
+              )
+            : _bookings.isEmpty
+            ? ListView(
+                children: const [
+                  SizedBox(height: 180),
+                  Center(child: Text('لا توجد طلبات حتى الآن')),
+                ],
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(12),
+                itemCount: _bookings.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (_, index) {
+                  final booking = _bookings[index];
+                  final status = booking['status']?.toString() ?? '';
+                  final invoiceUrl = booking['invoice_url']?.toString() ?? '';
+                  final paymentStatus =
+                      booking['payment_status']?.toString() ?? '';
+                  final checkoutUrl =
+                      booking['payment_checkout_url']?.toString() ?? '';
+                  final paymentLabel = _paymentStatus(paymentStatus);
+                  return Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _statusColor(status),
+                        child: const Icon(
+                          Icons.local_car_wash,
+                          color: Colors.white,
+                        ),
+                      ),
+                      title: Text(
+                        booking['service_name']?.toString() ?? 'غسيل سيارات',
+                      ),
+                      subtitle: Text(
+                        '${booking['date']} • ${booking['time_slot']}\n'
+                        '${_status(status, paymentStatus)}'
+                        '${paymentLabel.isEmpty ? '' : ' • $paymentLabel'}',
+                      ),
+                      isThreeLine: true,
+                      trailing: SizedBox(
+                        width: 115,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('${booking['total_price']} ر.س'),
+                            const SizedBox(height: 5),
+                            if (checkoutUrl.isNotEmpty &&
+                                paymentStatus == 'pending')
+                              FilledButton.icon(
+                                onPressed: () => _openCheckout(checkoutUrl),
+                                icon: const Icon(Icons.credit_card, size: 17),
+                                label: const Text('إكمال الدفع'),
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 5,
+                                  ),
+                                ),
+                              )
+                            else if (invoiceUrl.isNotEmpty &&
+                                status != 'canceled')
+                              OutlinedButton.icon(
+                                onPressed: () => _openInvoice(invoiceUrl),
+                                icon: const Icon(
+                                  Icons.receipt_long_outlined,
+                                  size: 17,
+                                ),
+                                label: const Text('الفاتورة'),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 5,
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
+                          ],
+                        ),
                       ),
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }
