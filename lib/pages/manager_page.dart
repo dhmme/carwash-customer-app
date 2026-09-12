@@ -24,6 +24,7 @@ class _ManagerPageState extends State<ManagerPage> {
   List<dynamic> services = [],
       addOns = [],
       categories = [],
+      timeSlots = [],
       bookings = [],
       invoices = [],
       workers = [];
@@ -75,6 +76,7 @@ class _ManagerPageState extends State<ManagerPage> {
         api('services/'),
         api('add-ons/'),
         api('categories/'),
+        api('time-slots/'),
         api('bookings/'),
         api('invoices/'),
         api('workers/'),
@@ -86,10 +88,11 @@ class _ManagerPageState extends State<ManagerPage> {
           services = data[1];
           addOns = data[2];
           categories = data[3];
-          bookings = data[4];
-          invoices = data[5];
-          workers = data[6];
-          ledger = Map<String, dynamic>.from(data[7]);
+          timeSlots = data[4];
+          bookings = data[5];
+          invoices = data[6];
+          workers = data[7];
+          ledger = Map<String, dynamic>.from(data[8]);
         });
     } catch (_) {
       if (mounted) setState(() => error = 'تعذر تحميل بيانات الإدارة');
@@ -262,8 +265,167 @@ class _ManagerPageState extends State<ManagerPage> {
         Icons.directions_car,
       ),
       _catalogSection('الخدمات الإضافية', 'add-ons', addOns, Icons.add_circle),
+      _timeSlotsSection(),
     ],
   );
+
+  Widget _timeSlotsSection() => Card(
+    child: ExpansionTile(
+      leading: const Icon(Icons.schedule),
+      title: const Text('أوقات الحجز'),
+      initiallyExpanded: true,
+      trailing: IconButton(
+        onPressed: () => _timeSlotDialog(),
+        icon: const Icon(Icons.add),
+      ),
+      children: timeSlots.map((raw) {
+        final slot = Map<String, dynamic>.from(raw);
+        final clock = slot['start_time']?.toString().substring(0, 5) ?? '';
+        return ListTile(
+          title: Text(slot['label']?.toString() ?? ''),
+          subtitle: Text(
+            '$clock${slot['day_offset'] == 1 ? ' • نهاية اليوم (بعد منتصف الليل)' : ''}',
+          ),
+          leading: Switch(
+            value: slot['is_active'] == true,
+            onChanged: (value) => _saveTimeSlot(
+              {'is_active': value},
+              slot['id'] as int,
+            ),
+          ),
+          trailing: Wrap(
+            spacing: 4,
+            children: [
+              IconButton(
+                tooltip: 'تعديل',
+                icon: const Icon(Icons.edit),
+                onPressed: () => _timeSlotDialog(slot),
+              ),
+              IconButton(
+                tooltip: 'حذف',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () => _deleteTimeSlot(slot),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ),
+  );
+
+  Future<void> _saveTimeSlot(Map<String, dynamic> values, [int? id]) async {
+    try {
+      await api(
+        'time-slots/${id == null ? '' : '$id/'}',
+        method: id == null ? 'POST' : 'PATCH',
+        body: values,
+      );
+      await loadAll();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر حفظ الوقت. تأكد أنه غير مكرر ولا توجد عليه حجوزات مستقبلية.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteTimeSlot(Map<String, dynamic> slot) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف وقت الحجز'),
+        content: Text('هل تريد حذف ${slot['label']}؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('حذف')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await api('time-slots/${slot['id']}/', method: 'DELETE');
+      await loadAll();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لا يمكن حذف وقت عليه حجوزات حالية أو مستقبلية. يمكنك إيقافه بدلًا من ذلك.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _timeSlotDialog([Map<String, dynamic>? item]) async {
+    final label = TextEditingController(text: item?['label']?.toString() ?? '');
+    final rawTime = item?['start_time']?.toString().split(':') ?? const ['9', '0'];
+    TimeOfDay selected = TimeOfDay(
+      hour: int.tryParse(rawTime[0]) ?? 9,
+      minute: rawTime.length > 1 ? int.tryParse(rawTime[1]) ?? 0 : 0,
+    );
+    bool nextDay = item?['day_offset'] == 1;
+    bool active = item?['is_active'] != false;
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: Text(item == null ? 'إضافة وقت حجز' : 'تعديل وقت الحجز'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: label,
+                  onChanged: (_) => setLocal(() {}),
+                  decoration: const InputDecoration(labelText: 'الاسم الظاهر للعميل، مثل 9 صباحاً'),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('الساعة'),
+                  subtitle: Text(selected.format(context)),
+                  trailing: const Icon(Icons.schedule),
+                  onTap: () async {
+                    final picked = await showTimePicker(context: context, initialTime: selected);
+                    if (picked != null) setLocal(() => selected = picked);
+                  },
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: nextDay,
+                  onChanged: (value) => setLocal(() => nextDay = value),
+                  title: const Text('بعد منتصف الليل (نهاية اليوم المختار)'),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: active,
+                  onChanged: (value) => setLocal(() => active = value),
+                  title: const Text('متاح للحجز'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            FilledButton(
+              onPressed: label.text.trim().isEmpty ? null : () {
+                Navigator.pop(dialogContext);
+                final hour = selected.hour.toString().padLeft(2, '0');
+                final minute = selected.minute.toString().padLeft(2, '0');
+                _saveTimeSlot({
+                  'label': label.text.trim(),
+                  'start_time': '$hour:$minute:00',
+                  'day_offset': nextDay ? 1 : 0,
+                  'is_active': active,
+                }, item?['id'] as int?);
+              },
+              child: const Text('حفظ'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _catalogSection(
     String title,

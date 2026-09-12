@@ -1,42 +1,21 @@
-const bookingTimeSlots = [
-  '9 صباحاً',
-  '10 صباحاً',
-  '11 صباحاً',
-  '4 مساءً',
-  '5 مساءً',
-  '6 مساءً',
-  '7 مساءً',
-  '8 مساءً',
-  '9 مساءً',
-  '10 مساءً',
-  '11 مساءً',
-  '12 مساءً',
-];
-
-const _bookingSlotHours = {
-  '9 صباحاً': 9,
-  '10 صباحاً': 10,
-  '11 صباحاً': 11,
-  '4 مساءً': 16,
-  '5 مساءً': 17,
-  '6 مساءً': 18,
-  '7 مساءً': 19,
-  '8 مساءً': 20,
-  '9 مساءً': 21,
-  '10 مساءً': 22,
-  '11 مساءً': 23,
-  '12 مساءً': 24,
-};
-
-DateTime? bookingSlotDateTime(DateTime date, String slot) {
-  final hour = _bookingSlotHours[slot];
-  if (hour == null) return null;
-  final selectedDay = DateTime(date.year, date.month, date.day);
-  if (hour == 24) return selectedDay.add(const Duration(days: 1));
-  return DateTime(date.year, date.month, date.day, hour);
+DateTime? bookingSlotDateTime(DateTime date, Map<String, dynamic> slot) {
+  final rawTime = slot['start_time']?.toString();
+  if (rawTime == null) return null;
+  final parts = rawTime.split(':');
+  if (parts.length < 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  final offset = int.tryParse(slot['day_offset']?.toString() ?? '0') ?? 0;
+  return DateTime(date.year, date.month, date.day, hour, minute)
+      .add(Duration(days: offset));
 }
 
-bool isBookingSlotPast(DateTime date, String slot, {DateTime? now}) {
+bool isBookingSlotPast(
+  DateTime date,
+  Map<String, dynamic> slot, {
+  DateTime? now,
+}) {
   final slotDateTime = bookingSlotDateTime(date, slot);
   if (slotDateTime == null) return false;
   return !slotDateTime.isAfter(now ?? DateTime.now());
