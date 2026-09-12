@@ -4,10 +4,11 @@ import 'pages/auth_page.dart';
 import 'pages/customer_home_page.dart';
 import 'session.dart';
 import 'app_theme.dart';
+import 'app_config.dart';
 import 'main_worker.dart' as worker;
 import 'main_manager.dart' as manager;
 
-const String baseUrl = 'https://carwash-backend-2yz2.onrender.com';
+const String baseUrl = AppConfig.apiBaseUrl;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +50,7 @@ class _CustomerAppState extends State<CustomerApp> {
   }
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'Car Wash', debugShowCheckedModeBanner: false,
+    title: 'Code Care', debugShowCheckedModeBanner: false,
     theme: buildAppTheme(),
     home: Session.token == null
       ? AuthPage(baseUrl: baseUrl, onAuthenticated: () => setState(() {}))

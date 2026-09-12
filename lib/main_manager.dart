@@ -4,8 +4,9 @@ import 'app_theme.dart';
 import 'pages/auth_page.dart';
 import 'pages/manager_page.dart';
 import 'session.dart';
+import 'app_config.dart';
 
-const baseUrl = 'https://carwash-backend-2yz2.onrender.com';
+const baseUrl = AppConfig.apiBaseUrl;
 
 class ManagerApp extends StatefulWidget {
   const ManagerApp({super.key});

@@ -5,8 +5,9 @@ import 'pages/auth_page.dart';
 import 'pages/worker_bookings_page.dart';
 import 'session.dart';
 import 'app_theme.dart';
+import 'app_config.dart';
 
-const String baseUrl = 'https://carwash-backend-2yz2.onrender.com';
+const String baseUrl = AppConfig.apiBaseUrl;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,6 +1,6 @@
 {
-    "name": "carwash_app",
-    "short_name": "carwash_app",
+    "name": "Code Care",
+    "short_name": "Code Care",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -27,7 +27,7 @@ ThemeData buildAppTheme() {
     useMaterial3: true,
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.ice,
-      foregroundColor: AppColors.navy,
+      foregroundColor: AppColors.text,
       elevation: 0,
       centerTitle: false,
     ),

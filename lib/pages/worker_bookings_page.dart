@@ -6,8 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../session.dart';
+import '../app_config.dart';
 
-const baseUrl = 'https://carwash-backend-2yz2.onrender.com';
+const baseUrl = AppConfig.apiBaseUrl;
 
 class WorkerBooking {
   final int id;
