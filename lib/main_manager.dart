@@ -8,6 +8,12 @@ import 'app_config.dart';
 
 const baseUrl = AppConfig.apiBaseUrl;
 
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Session.load();
+  runApp(const ManagerApp());
+}
+
 class ManagerApp extends StatefulWidget {
   const ManagerApp({super.key});
   @override State<ManagerApp> createState() => _ManagerAppState();
@@ -17,12 +23,12 @@ class _ManagerAppState extends State<ManagerApp> {
   @override void initState() { super.initState(); Session.onUnauthorized = () async { if (mounted) setState(() {}); }; }
   @override void dispose() { Session.onUnauthorized = null; super.dispose(); }
   Future<void> logout() async {
-    try { await http.post(Uri.parse('$baseUrl/api/auth/logout/'), headers: Session.authHeaders); } catch (_) {}
+    try { await http.post(Uri.parse('$baseUrl/api/auth/logout/'), headers: Session.authHeaders, body: Session.logoutBody); } catch (_) {}
     await Session.clear(); if (mounted) setState(() {});
   }
   @override Widget build(BuildContext context) => MaterialApp(
     title: 'إدارة المغسلة', debugShowCheckedModeBanner: false, theme: buildAppTheme(),
-    home: Session.token == null
+    home: !Session.isAuthenticated
       ? AuthPage(baseUrl: baseUrl, allowRegister: false, requireManager: true, onAuthenticated: () => setState(() {}))
       : ManagerPage(onLogout: logout),
   );

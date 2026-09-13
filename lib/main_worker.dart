@@ -42,7 +42,7 @@ class _WorkerAppState extends State<WorkerApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: Session.token == null
+      home: !Session.isAuthenticated
           ? AuthPage(
               baseUrl: baseUrl,
               allowRegister: false,
@@ -55,6 +55,7 @@ class _WorkerAppState extends State<WorkerApp> {
                   await http.post(
                     Uri.parse('$baseUrl/api/auth/logout/'),
                     headers: Session.authHeaders,
+                    body: Session.logoutBody,
                   );
                 } catch (_) {}
                 await Session.clear();

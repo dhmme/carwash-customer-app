@@ -74,7 +74,10 @@ class _AuthPageState extends State<AuthPage> {
           setState(() => _error = 'هذا الحساب غير مصرح له بدخول الإدارة.');
           return;
         }
-        await Session.saveToken(data['token'] as String);
+        await Session.saveTokens(
+          data['access'] as String,
+          data['refresh'] as String,
+        );
         widget.onAuthenticated();
       } else {
         setState(() {

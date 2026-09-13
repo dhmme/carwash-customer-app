@@ -44,7 +44,7 @@ class _CustomerAppState extends State<CustomerApp> {
   }
 
   Future<void> _logout() async {
-    try { await http.post(Uri.parse('$baseUrl/api/auth/logout/'), headers: Session.authHeaders); } catch (_) {}
+    try { await http.post(Uri.parse('$baseUrl/api/auth/logout/'), headers: Session.authHeaders, body: Session.logoutBody); } catch (_) {}
     await Session.clear();
     setState(() {});
   }
@@ -52,7 +52,7 @@ class _CustomerAppState extends State<CustomerApp> {
   Widget build(BuildContext context) => MaterialApp(
     title: 'Code Care', debugShowCheckedModeBanner: false,
     theme: buildAppTheme(),
-    home: Session.token == null
+    home: !Session.isAuthenticated
       ? AuthPage(baseUrl: baseUrl, onAuthenticated: () => setState(() {}))
       : CustomerHomePage(baseUrl: baseUrl, onLogout: _logout),
   );
