@@ -1,11 +1,6 @@
 name: Build Worker and Manager Web Apps
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'build/web/**'
-      - 'deploy/**'
   workflow_dispatch:
 
 permissions:
