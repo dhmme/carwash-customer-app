@@ -8,6 +8,10 @@
 /build/*
 !/build/web/
 !/build/web/**
+/deploy/worker/*
+!/deploy/worker/vercel.json
+/deploy/manager/*
+!/deploy/manager/vercel.json
 ios/Pods/
 macos/Pods/
 DerivedData/
