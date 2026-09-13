@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths-ignore:
       - 'build/web/**'
+      - 'deploy/**'
   workflow_dispatch:
 
 permissions:
@@ -37,14 +38,33 @@ jobs:
       - name: Build customer web app
         run: flutter build web --release -t lib/main.dart
 
+      - name: Build worker web app
+        run: |
+          flutter build web --release -t lib/main_worker.dart
+          rm -rf deploy/worker
+          mkdir -p deploy/worker
+          cp -R build/web/. deploy/worker/
+          cp vercel.role.json deploy/worker/vercel.json
+
+      - name: Build manager web app
+        run: |
+          flutter build web --release -t lib/main_manager.dart
+          rm -rf deploy/manager
+          mkdir -p deploy/manager
+          cp -R build/web/. deploy/manager/
+          cp vercel.role.json deploy/manager/vercel.json
+
+      - name: Restore customer web app
+        run: flutter build web --release -t lib/main.dart
+
       - name: Commit generated web files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f build/web
+          git add -f build/web deploy/worker deploy/manager
           if git diff --cached --quiet; then
             echo "No generated changes"
           else
-            git commit -m "Build customer Flutter web app [skip ci]"
+            git commit -m "Build customer, worker, and manager web apps [skip ci]"
             git push origin HEAD:main
           fi
