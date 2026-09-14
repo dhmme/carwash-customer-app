@@ -5,21 +5,13 @@ import 'pages/customer_home_page.dart';
 import 'session.dart';
 import 'app_theme.dart';
 import 'app_config.dart';
-import 'main_worker.dart' as worker;
-import 'main_manager.dart' as manager;
 
 const String baseUrl = AppConfig.apiBaseUrl;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Session.load();
-  if (Uri.base.path.startsWith('/manager')) {
-    runApp(const manager.ManagerApp());
-  } else if (Uri.base.path.startsWith('/worker')) {
-    runApp(const worker.WorkerApp());
-  } else {
-    runApp(const CustomerApp());
-  }
+  runApp(const CustomerApp());
 }
 
 class CustomerApp extends StatefulWidget {
