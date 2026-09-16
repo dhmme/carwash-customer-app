@@ -13,7 +13,12 @@ const baseUrl = AppConfig.apiBaseUrl;
 class WorkerBooking {
   final int id;
   final String date, timeSlot, status, customerName, customerPhone;
-  final String carName, carColor, plateNumber, serviceName, addressText;
+  final String carName,
+      carColor,
+      plateNumber,
+      serviceName,
+      serviceGroupName,
+      addressText;
   final String mapsUrl, totalPrice, paymentMethod;
   final List<Map<String, dynamic>> addOns;
   WorkerBooking.fromJson(Map<String, dynamic> j)
@@ -23,10 +28,11 @@ class WorkerBooking {
       status = j['status'] ?? '',
       customerName = j['customer_name'] ?? '',
       customerPhone = j['customer_phone'] ?? '',
-      carName = j['car_name'] ?? 'مركبة',
+      carName = j['car_name'] ?? '',
       carColor = j['car_color'] ?? '',
       plateNumber = j['plate_number'] ?? '',
       serviceName = j['service_name'] ?? '',
+      serviceGroupName = j['service_group_name'] ?? '',
       addressText = j['address_text'] ?? '',
       mapsUrl = j['maps_url'] ?? '',
       totalPrice = '${j['total_price'] ?? ''}',
@@ -209,10 +215,11 @@ class _BookingCard extends StatelessWidget {
               Icons.person,
               '${booking.customerName} — ${booking.customerPhone}',
             ),
-            info(
-              Icons.directions_car,
-              '${booking.carName} • ${booking.carColor} • ${booking.plateNumber}',
-            ),
+            if (booking.carName.isNotEmpty)
+              info(
+                Icons.directions_car,
+                '${booking.carName} • ${booking.carColor} • ${booking.plateNumber}',
+              ),
             info(Icons.local_car_wash, booking.serviceName),
             if (booking.addOns.isNotEmpty)
               info(

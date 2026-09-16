@@ -8,7 +8,10 @@ import '../session.dart';
 
 class PaymentPage extends StatefulWidget {
   final String baseUrl, date, time;
-  final Map<String, dynamic> location, car, service;
+  final Map<String, dynamic> location;
+  final Map<String, dynamic>? car, service;
+  final Map<String, dynamic> serviceGroup;
+  final List<Map<String, dynamic>> serviceItems;
   final List<Map<String, dynamic>> addOns;
   final double total;
 
@@ -16,8 +19,10 @@ class PaymentPage extends StatefulWidget {
     super.key,
     required this.baseUrl,
     required this.location,
-    required this.car,
-    required this.service,
+    this.car,
+    this.service,
+    required this.serviceGroup,
+    this.serviceItems = const [],
     required this.addOns,
     required this.total,
     required this.date,
@@ -71,9 +76,13 @@ class _PaymentPageState extends State<PaymentPage> {
         Uri.parse('${widget.baseUrl}/api/bookings/'),
         headers: Session.authHeaders,
         body: jsonEncode({
-          'car': widget.car['id'],
-          'service': widget.service['id'],
-          'car_size': widget.car['size'],
+          'service_group': widget.serviceGroup['id'],
+          if (widget.car != null) 'car': widget.car!['id'],
+          if (widget.service != null) 'service': widget.service!['id'],
+          if (widget.car != null) 'car_size': widget.car!['size'],
+          'service_items': widget.serviceItems
+              .map((item) => {'id': item['id'], 'quantity': item['quantity']})
+              .toList(),
           'address_text': widget.location['address_text'],
           'latitude': widget.location['latitude'],
           'longitude': widget.location['longitude'],
@@ -171,17 +180,25 @@ class _PaymentPageState extends State<PaymentPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  row('الخدمة', widget.service['name']),
+                  if (widget.service != null)
+                    row('الخدمة', widget.service!['name']),
+                  ...widget.serviceItems.map(
+                    (item) => row(
+                      item['name'],
+                      '${item['quantity']} × ${item['price']} ر.س',
+                    ),
+                  ),
                   ...widget.addOns.map(
                     (item) => row(
                       item['name'],
                       '${item['quantity']} × ${item['price']} ر.س',
                     ),
                   ),
-                  row(
-                    'المركبة',
-                    widget.car['vehicle_name'] ?? widget.car['brand'],
-                  ),
+                  if (widget.car != null)
+                    row(
+                      'المركبة',
+                      widget.car!['vehicle_name'] ?? widget.car!['brand'],
+                    ),
                   row('الموقع', widget.location['name']),
                   row('الموعد', '${widget.date} • ${widget.time}'),
                   const Divider(),

@@ -22,6 +22,7 @@ class _ManagerPageState extends State<ManagerPage> {
   Map<String, dynamic> stats = {};
   Map<String, dynamic> ledger = {};
   List<dynamic> services = [],
+      serviceGroups = [],
       addOns = [],
       categories = [],
       timeSlots = [],
@@ -73,6 +74,7 @@ class _ManagerPageState extends State<ManagerPage> {
     try {
       final data = await Future.wait([
         api('dashboard/'),
+        api('service-groups/'),
         api('services/'),
         api('add-ons/'),
         api('categories/'),
@@ -85,14 +87,15 @@ class _ManagerPageState extends State<ManagerPage> {
       if (mounted)
         setState(() {
           stats = Map<String, dynamic>.from(data[0]);
-          services = data[1];
-          addOns = data[2];
-          categories = data[3];
-          timeSlots = data[4];
-          bookings = data[5];
-          invoices = data[6];
-          workers = data[7];
-          ledger = Map<String, dynamic>.from(data[8]);
+          serviceGroups = data[1];
+          services = data[2];
+          addOns = data[3];
+          categories = data[4];
+          timeSlots = data[5];
+          bookings = data[6];
+          invoices = data[7];
+          workers = data[8];
+          ledger = Map<String, dynamic>.from(data[9]);
         });
     } catch (_) {
       if (mounted) setState(() => error = 'تعذر تحميل بيانات الإدارة');
@@ -252,6 +255,7 @@ class _ManagerPageState extends State<ManagerPage> {
   Widget _catalog() => ListView(
     padding: const EdgeInsets.all(16),
     children: [
+      _serviceGroupsSection(),
       _catalogSection(
         'خدمات الغسيل',
         'services',
@@ -267,6 +271,23 @@ class _ManagerPageState extends State<ManagerPage> {
       _catalogSection('الخدمات الإضافية', 'add-ons', addOns, Icons.add_circle),
       _timeSlotsSection(),
     ],
+  );
+
+  Widget _serviceGroupsSection() => Card(
+    child: ExpansionTile(
+      leading: const Icon(Icons.apps),
+      title: const Text('الخدمات الأساسية'),
+      initiallyExpanded: true,
+      children: serviceGroups.map((raw) {
+        final group = Map<String, dynamic>.from(raw);
+        return SwitchListTile(
+          value: group['is_active'] == true,
+          onChanged: (_) => toggleCatalog('service-groups', group),
+          title: Text(group['name'] ?? ''),
+          subtitle: Text(group['description'] ?? ''),
+        );
+      }).toList(),
+    ),
   );
 
   Widget _timeSlotsSection() => Card(
@@ -288,10 +309,8 @@ class _ManagerPageState extends State<ManagerPage> {
           ),
           leading: Switch(
             value: slot['is_active'] == true,
-            onChanged: (value) => _saveTimeSlot(
-              {'is_active': value},
-              slot['id'] as int,
-            ),
+            onChanged: (value) =>
+                _saveTimeSlot({'is_active': value}, slot['id'] as int),
           ),
           trailing: Wrap(
             spacing: 4,
@@ -324,7 +343,11 @@ class _ManagerPageState extends State<ManagerPage> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تعذر حفظ الوقت. تأكد أنه غير مكرر ولا توجد عليه حجوزات مستقبلية.')),
+          const SnackBar(
+            content: Text(
+              'تعذر حفظ الوقت. تأكد أنه غير مكرر ولا توجد عليه حجوزات مستقبلية.',
+            ),
+          ),
         );
       }
     }
@@ -337,8 +360,14 @@ class _ManagerPageState extends State<ManagerPage> {
         title: const Text('حذف وقت الحجز'),
         content: Text('هل تريد حذف ${slot['label']}؟'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('حذف')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف'),
+          ),
         ],
       ),
     );
@@ -349,7 +378,11 @@ class _ManagerPageState extends State<ManagerPage> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لا يمكن حذف وقت عليه حجوزات حالية أو مستقبلية. يمكنك إيقافه بدلًا من ذلك.')),
+          const SnackBar(
+            content: Text(
+              'لا يمكن حذف وقت عليه حجوزات حالية أو مستقبلية. يمكنك إيقافه بدلًا من ذلك.',
+            ),
+          ),
         );
       }
     }
@@ -357,13 +390,17 @@ class _ManagerPageState extends State<ManagerPage> {
 
   Future<void> _timeSlotDialog([Map<String, dynamic>? item]) async {
     final label = TextEditingController(text: item?['label']?.toString() ?? '');
-    final rawTime = item?['start_time']?.toString().split(':') ?? const ['9', '0'];
+    final rawTime =
+        item?['start_time']?.toString().split(':') ?? const ['9', '0'];
     TimeOfDay selected = TimeOfDay(
       hour: int.tryParse(rawTime[0]) ?? 9,
       minute: rawTime.length > 1 ? int.tryParse(rawTime[1]) ?? 0 : 0,
     );
     bool nextDay = item?['day_offset'] == 1;
     bool active = item?['is_active'] != false;
+    int? selectedGroup =
+        item?['group'] as int? ??
+        (serviceGroups.isNotEmpty ? serviceGroups.first['id'] as int : null);
     await showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -374,10 +411,30 @@ class _ManagerPageState extends State<ManagerPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                DropdownButtonFormField<int>(
+                  value: selectedGroup,
+                  decoration: const InputDecoration(
+                    labelText: 'الخدمة الأساسية',
+                  ),
+                  items: serviceGroups
+                      .map(
+                        (g) => DropdownMenuItem<int>(
+                          value: g['id'],
+                          child: Text(g['name']),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: item == null
+                      ? (v) => setLocal(() => selectedGroup = v)
+                      : null,
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: label,
                   onChanged: (_) => setLocal(() {}),
-                  decoration: const InputDecoration(labelText: 'الاسم الظاهر للعميل، مثل 9 صباحاً'),
+                  decoration: const InputDecoration(
+                    labelText: 'الاسم الظاهر للعميل، مثل 9 صباحاً',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ListTile(
@@ -386,7 +443,10 @@ class _ManagerPageState extends State<ManagerPage> {
                   subtitle: Text(selected.format(context)),
                   trailing: const Icon(Icons.schedule),
                   onTap: () async {
-                    final picked = await showTimePicker(context: context, initialTime: selected);
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: selected,
+                    );
                     if (picked != null) setLocal(() => selected = picked);
                   },
                 ),
@@ -406,19 +466,25 @@ class _ManagerPageState extends State<ManagerPage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إلغاء'),
+            ),
             FilledButton(
-              onPressed: label.text.trim().isEmpty ? null : () {
-                Navigator.pop(dialogContext);
-                final hour = selected.hour.toString().padLeft(2, '0');
-                final minute = selected.minute.toString().padLeft(2, '0');
-                _saveTimeSlot({
-                  'label': label.text.trim(),
-                  'start_time': '$hour:$minute:00',
-                  'day_offset': nextDay ? 1 : 0,
-                  'is_active': active,
-                }, item?['id'] as int?);
-              },
+              onPressed: label.text.trim().isEmpty
+                  ? null
+                  : () {
+                      Navigator.pop(dialogContext);
+                      final hour = selected.hour.toString().padLeft(2, '0');
+                      final minute = selected.minute.toString().padLeft(2, '0');
+                      _saveTimeSlot({
+                        'group': selectedGroup,
+                        'label': label.text.trim(),
+                        'start_time': '$hour:$minute:00',
+                        'day_offset': nextDay ? 1 : 0,
+                        'is_active': active,
+                      }, item?['id'] as int?);
+                    },
               child: const Text('حفظ'),
             ),
           ],
@@ -474,6 +540,9 @@ class _ManagerPageState extends State<ManagerPage> {
       text: item?['unit']?.toString() ?? 'خدمة',
     );
     bool quantity = item?['allows_quantity'] == true;
+    int? selectedGroup =
+        item?['group'] as int? ??
+        (serviceGroups.isNotEmpty ? serviceGroups.first['id'] as int : null);
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -490,6 +559,24 @@ class _ManagerPageState extends State<ManagerPage> {
                     decoration: const InputDecoration(labelText: 'الاسم'),
                   ),
                   const SizedBox(height: 10),
+                  if (type == 'services') ...[
+                    DropdownButtonFormField<int>(
+                      value: selectedGroup,
+                      decoration: const InputDecoration(
+                        labelText: 'الخدمة الأساسية',
+                      ),
+                      items: serviceGroups
+                          .map(
+                            (g) => DropdownMenuItem<int>(
+                              value: g['id'],
+                              child: Text(g['name']),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setLocal(() => selectedGroup = v),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   if (type == 'categories')
                     TextField(
                       controller: key,
@@ -508,7 +595,7 @@ class _ManagerPageState extends State<ManagerPage> {
                           : 'السعر',
                     ),
                   ),
-                  if (type == 'add-ons') ...[
+                  if (type == 'add-ons' || type == 'services') ...[
                     const SizedBox(height: 10),
                     TextField(
                       controller: unit,
@@ -540,7 +627,12 @@ class _ManagerPageState extends State<ManagerPage> {
                   values['price_adjustment'] = price.text;
                 } else {
                   values['price'] = price.text;
-                  if (type == 'services') values['description'] = '';
+                  if (type == 'services') {
+                    values['description'] = '';
+                    values['group'] = selectedGroup;
+                    values['unit'] = unit.text;
+                    values['allows_quantity'] = quantity;
+                  }
                   if (type == 'add-ons') {
                     values['unit'] = unit.text;
                     values['allows_quantity'] = quantity;
