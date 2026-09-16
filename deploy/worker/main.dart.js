@@ -7858,11 +7858,11 @@ _.r=f
 _.w=g
 _.x=h
 _.y=i
-_.z=j
-_.Q=k
-_.as=l
-_.at=m
-_.ax=n},
+_.Q=j
+_.as=k
+_.at=l
+_.ax=m
+_.ay=n},
 Ce:function Ce(a,b){this.c=a
 this.a=b},
 G1:function G1(a){var _=this
@@ -42798,13 +42798,14 @@ if(q==null)q=""
 p=g.h(a,"customer_phone")
 if(p==null)p=""
 o=g.h(a,"car_name")
-if(o==null)o="\u0645\u0631\u0643\u0628\u0629"
+if(o==null)o=""
 n=g.h(a,"car_color")
 if(n==null)n=""
 m=g.h(a,"plate_number")
 if(m==null)m=""
 l=g.h(a,"service_name")
 if(l==null)l=""
+g.h(a,"service_group_name")
 k=g.h(a,"address_text")
 if(k==null)k=""
 j=g.h(a,"maps_url")
@@ -42840,24 +42841,27 @@ return s.q4("tel:"+s.f[this.b].f)},
 $S:0}
 A.arw.prototype={
 $0(){var s=this.a
-return s.q4(s.f[this.b].Q)},
+return s.q4(s.f[this.b].as)},
 $S:0}
 A.uA.prototype={
 pX(a,b,c){var s=null
 return new A.cr(B.E3,A.pC(A.c([A.aul(b,s,19),B.yR,A.Jr(A.fH(c,s,s,s,s,s,s),1)],t.E),B.aU,B.aV,B.cM,0),s)},
 L(a){var s=this,r=null,q=s.c,p=q.d,o=p!=="completed"&&p!=="canceled",n=A.fH(q.c,r,r,r,B.Sz,r,r),m=B.Jj.h(0,p),l=t.E,k=q.f
-m=A.c([A.pC(A.c([n,B.Ow,new A.I1(A.fH(m==null?p:m,r,r,r,r,r,r),r)],l),B.aU,B.aV,B.cM,0),s.pX(0,B.EH,q.e+" \u2014 "+k),s.pX(0,B.EB,q.r+" \u2022 "+q.w+" \u2022 "+q.x),s.pX(0,B.nQ,q.y)],l)
-p=q.ax
+m=A.c([A.pC(A.c([n,B.Ow,new A.I1(A.fH(m==null?p:m,r,r,r,r,r,r),r)],l),B.aU,B.aV,B.cM,0),s.pX(0,B.EH,q.e+" \u2014 "+k)],l)
+p=q.r
+if(p.length!==0)m.push(s.pX(0,B.EB,p+" \u2022 "+q.w+" \u2022 "+q.x))
+m.push(s.pX(0,B.nQ,q.y))
+p=q.ay
 if(p.length!==0)m.push(s.pX(0,B.Ex,new A.ac(p,new A.aiR(),A.a7(p).i("ac<1,p>")).bj(0,"\u060c ")))
-p=q.z
+p=q.Q
 m.push(s.pX(0,B.EC,p.length===0?"\u0627\u0644\u0645\u0648\u0642\u0639 \u0627\u0644\u0645\u062d\u062f\u062f \u0639\u0644\u0649 \u0627\u0644\u062e\u0631\u064a\u0637\u0629":p))
-p=q.at
+p=q.ax
 n=B.Jk.h(0,p)
 p=n==null?p:n
-m.push(s.pX(0,B.EG,q.as+" \u0631.\u0633 \u2022 "+p))
+m.push(s.pX(0,B.EG,q.at+" \u0631.\u0633 \u2022 "+p))
 m.push(B.Og)
 p=A.Jr(A.azU(B.ET,B.TJ,k.length===0?r:s.e),1)
-m.push(A.pC(A.c([p,B.yR,A.Jr(A.azU(B.EQ,B.TI,q.Q.length===0?r:s.f),1)],l),B.aU,B.aV,B.cM,0))
+m.push(A.pC(A.c([p,B.yR,A.Jr(A.azU(B.EQ,B.TI,q.as.length===0?r:s.f),1)],l),B.aU,B.aV,B.cM,0))
 if(o)B.b.R(m,A.c([B.Of,A.iH(new A.Jx(!0,new A.aiS(s),r,r,r,r,B.L,r,!1,r,!0,r,new A.Rq(B.TF,B.EO,r,r,r),r),r,1/0)],l))
 return A.axW(new A.cr(B.nh,A.a0k(m,B.bT,B.aV,B.cM),r))}}
 A.aiR.prototype={
