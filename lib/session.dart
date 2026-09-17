@@ -10,6 +10,7 @@ class Session {
   static const _storage = FlutterSecureStorage();
   static String? accessToken;
   static String? refreshToken;
+  static Future<bool>? _refreshInProgress;
   static Future<void> Function()? onUnauthorized;
 
   static Future<void> load() async {
@@ -42,6 +43,18 @@ class Session {
   }
 
   static Future<bool> refresh() async {
+    final existing = _refreshInProgress;
+    if (existing != null) return existing;
+    final operation = _performRefresh();
+    _refreshInProgress = operation;
+    try {
+      return await operation;
+    } finally {
+      _refreshInProgress = null;
+    }
+  }
+
+  static Future<bool> _performRefresh() async {
     final currentRefresh = refreshToken;
     if (currentRefresh == null) return false;
     try {
@@ -66,7 +79,7 @@ class Session {
   static String get logoutBody => jsonEncode({'refresh': refreshToken});
 
   static Map<String, String> get authHeaders => {
-        'Content-Type': 'application/json',
-        if (accessToken != null) 'Authorization': 'Bearer $accessToken',
-      };
+    'Content-Type': 'application/json',
+    if (accessToken != null) 'Authorization': 'Bearer $accessToken',
+  };
 }

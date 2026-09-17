@@ -41,6 +41,7 @@ class _ManagerPageState extends State<ManagerPage> {
     String path, {
     String method = 'GET',
     Map<String, dynamic>? body,
+    bool retryAfterRefresh = true,
   }) async {
     final uri = Uri.parse('$baseUrl/api/manager/$path');
     final r = switch (method) {
@@ -58,7 +59,11 @@ class _ManagerPageState extends State<ManagerPage> {
       _ => await http.get(uri, headers: Session.authHeaders),
     };
     if (r.statusCode == 401 || r.statusCode == 403) {
-      await Session.handleUnauthorized();
+      if (r.statusCode == 401 && retryAfterRefresh && await Session.refresh()) {
+        return api(path, method: method, body: body, retryAfterRefresh: false);
+      }
+      await Session.clear();
+      await Session.onUnauthorized?.call();
       throw Exception();
     }
     if (r.statusCode < 200 || r.statusCode >= 300) throw Exception(r.body);
