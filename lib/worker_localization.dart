@@ -58,7 +58,36 @@ class WorkerLocalizations {
     'Unable to complete the request.',
     'অনুরোধটি সম্পন্ন করা যায়নি।',
   );
-  String get serverUnavailable => _value(
+    String get service => _value('الخدمة', 'Service', 'সেবা');
+  String get washType => _value('نوع الغسيل', 'Wash type', 'ওয়াশের ধরন');
+  String get additionalServices => _value('الخدمات الإضافية', 'Additional services', 'অতিরিক্ত সেবা');
+
+  String serviceName(String value) {
+    final names = <String, List<String>>{
+      'غسيل السيارات': ['غسيل السيارات', 'Car wash', 'গাড়ি ধোয়া'],
+      'غسيل الأثاث': ['غسيل الأثاث', 'Furniture cleaning', 'আসবাব পরিষ্কার'],
+      'غسيل الأحواش': ['غسيل الأحواش', 'Yard cleaning', 'আঙিনা পরিষ্কার'],
+      'غسيل كامل': ['غسيل كامل', 'Interior and exterior wash', 'ভিতর ও বাইরে ধোয়া'],
+      'غسيل داخلي وخارجي': ['غسيل داخلي وخارجي', 'Interior and exterior wash', 'ভিতর ও বাইরে ধোয়া'],
+      'غسيل خارجي': ['غسيل خارجي', 'Exterior wash', 'বাইরের অংশ ধোয়া'],
+      'غسيل داخلي': ['غسيل داخلي', 'Interior wash', 'ভেতরের অংশ ধোয়া'],
+      'كنب': ['كنب', 'Sofa', 'সোফা'],
+      'سجاد': ['سجاد', 'Carpet', 'কার্পেট'],
+      'جلسة عربية': ['جلسة عربية', 'Arabic seating', 'আরবি বসার আসন'],
+      'غسيل المراتب': ['غسيل المراتب', 'Seat shampoo', 'সিট পরিষ্কার'],
+      'معطرات': ['معطرات', 'Air fresheners', 'এয়ার ফ্রেশনার'],
+      'الكاوا': ['الكاوا', 'Kawa service', 'কাওয়া সেবা'],
+    }[value.trim()];
+    if (names == null) return value;
+    return names[language == WorkerLanguage.ar ? 0 : language == WorkerLanguage.en ? 1 : 2];
+  }
+
+  String serviceLine(String value) {
+    final parts = value.split('×');
+    return parts.length == 2 ? serviceName(parts.first.trim()) + ' × ' + parts.last.trim() : serviceName(value);
+  }
+
+String get serverUnavailable => _value(
     'تعذر الاتصال بالخادم، حاول مرة أخرى.',
     'Unable to connect to the server. Try again.',
     'সার্ভারের সাথে সংযোগ করা যায়নি। আবার চেষ্টা করুন।',
