@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../session.dart';
+import '../worker_localization.dart';
 import '../app_config.dart';
 
 const baseUrl = AppConfig.apiBaseUrl;
@@ -42,7 +43,14 @@ class WorkerBooking {
 
 class WorkerBookingsPage extends StatefulWidget {
   final VoidCallback? onLogout;
-  const WorkerBookingsPage({super.key, this.onLogout});
+  final WorkerLocalizations localizations;
+  final ValueChanged<WorkerLanguage> onLanguageChanged;
+  const WorkerBookingsPage({
+    super.key,
+    this.onLogout,
+    required this.localizations,
+    required this.onLanguageChanged,
+  });
   @override
   State<WorkerBookingsPage> createState() => _WorkerBookingsPageState();
 }
@@ -79,7 +87,7 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
           () => bookings = data.map((e) => WorkerBooking.fromJson(e)).toList(),
         );
     } catch (_) {
-      if (mounted) setState(() => error = 'تعذر تحميل حجوزات اليوم');
+      if (mounted) setState(() => error = widget.localizations.loadFailed);
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -96,8 +104,9 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
     else if (r.statusCode == 200)
       await loadBookings();
     else if (mounted)
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('تعذر تحديث الحالة')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(widget.localizations.updateFailed)),
+      );
   }
 
   Future<void> launch(String value) async {
@@ -110,11 +119,30 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       foregroundColor: AppColors.text,
-      title: const Text('طلبات اليوم'),
+      title: Text(widget.localizations.todayBookings),
       actions: [
-        IconButton(onPressed: loadBookings, icon: const Icon(Icons.refresh)),
+        PopupMenuButton<WorkerLanguage>(
+          tooltip: widget.localizations.changeLanguage,
+          initialValue: widget.localizations.language,
+          onSelected: widget.onLanguageChanged,
+          icon: const Icon(Icons.language),
+          itemBuilder: (_) => WorkerLanguage.values
+              .map(
+                (language) => PopupMenuItem(
+                  value: language,
+                  child: Text(widget.localizations.languageLabel(language)),
+                ),
+              )
+              .toList(),
+        ),
+        IconButton(
+          tooltip: widget.localizations.refresh,
+          onPressed: loadBookings,
+          icon: const Icon(Icons.refresh),
+        ),
         if (widget.onLogout != null)
           IconButton(
+            tooltip: widget.localizations.logout,
             onPressed: widget.onLogout,
             icon: const Icon(Icons.logout),
           ),
@@ -133,9 +161,9 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
             )
           : bookings.isEmpty
           ? ListView(
-              children: const [
-                SizedBox(height: 260),
-                Center(child: Text('لا توجد طلبات اليوم')),
+              children: [
+                const SizedBox(height: 260),
+                Center(child: Text(widget.localizations.noBookings)),
               ],
             )
           : ListView.separated(
@@ -144,6 +172,7 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (_, i) => _BookingCard(
                 booking: bookings[i],
+                localizations: widget.localizations,
                 onStatus: (s) => updateStatus(bookings[i], s),
                 onCall: () => launch('tel:${bookings[i].customerPhone}'),
                 onMap: () => launch(bookings[i].mapsUrl),
@@ -155,28 +184,16 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
 
 class _BookingCard extends StatelessWidget {
   final WorkerBooking booking;
+  final WorkerLocalizations localizations;
   final ValueChanged<String> onStatus;
   final VoidCallback onCall, onMap;
   const _BookingCard({
     required this.booking,
+    required this.localizations,
     required this.onStatus,
     required this.onCall,
     required this.onMap,
   });
-  static const names = {
-    'pending': 'مؤكد',
-    'accepted': 'مؤكد',
-    'on_the_way': 'مؤكد',
-    'in_progress': 'مؤكد',
-    'completed': 'مكتمل',
-    'canceled': 'ملغي',
-  };
-  static const paymentNames = {
-    'cash': 'كاش',
-    'card': 'شبكة عند الوصول',
-    'bank_transfer': 'تحويل بنكي',
-    'online': 'مدفوع إلكترونيًا',
-  };
   Widget info(IconData icon, String value) => Padding(
     padding: const EdgeInsets.only(top: 8),
     child: Row(
@@ -208,7 +225,7 @@ class _BookingCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                Chip(label: Text(names[booking.status] ?? booking.status)),
+                Chip(label: Text(localizations.status(booking.status))),
               ],
             ),
             info(
@@ -231,12 +248,12 @@ class _BookingCard extends StatelessWidget {
             info(
               Icons.location_on,
               booking.addressText.isEmpty
-                  ? 'الموقع المحدد على الخريطة'
+                  ? localizations.selectedMapLocation
                   : booking.addressText,
             ),
             info(
               Icons.payments,
-              '${booking.totalPrice} ر.س • ${paymentNames[booking.paymentMethod] ?? booking.paymentMethod}',
+              '${booking.totalPrice} ${localizations.currency} • ${localizations.paymentMethod(booking.paymentMethod)}',
             ),
             const SizedBox(height: 14),
             Row(
@@ -245,7 +262,7 @@ class _BookingCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: booking.customerPhone.isEmpty ? null : onCall,
                     icon: const Icon(Icons.phone),
-                    label: const Text('اتصال'),
+                    label: Text(localizations.call),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -253,7 +270,7 @@ class _BookingCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: booking.mapsUrl.isEmpty ? null : onMap,
                     icon: const Icon(Icons.navigation),
-                    label: const Text('الموقع'),
+                    label: Text(localizations.location),
                   ),
                 ),
               ],
@@ -265,7 +282,7 @@ class _BookingCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: () => onStatus('completed'),
                   icon: const Icon(Icons.check_circle),
-                  label: const Text('تم الانتهاء من الغسيل'),
+                  label: Text(localizations.completeWash),
                 ),
               ),
             ],
