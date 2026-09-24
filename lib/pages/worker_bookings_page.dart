@@ -237,12 +237,14 @@ class _BookingCard extends StatelessWidget {
                 Icons.directions_car,
                 '${booking.carName} • ${booking.carColor} • ${booking.plateNumber}',
               ),
-            info(Icons.local_car_wash, booking.serviceName),
+            if (booking.serviceGroupName.isNotEmpty)
+              info(Icons.cleaning_services, localizations.service + ': ' + localizations.serviceName(booking.serviceGroupName)),
+            info(Icons.local_car_wash, localizations.washType + ': ' + localizations.serviceLine(booking.serviceName)),
             if (booking.addOns.isNotEmpty)
               info(
                 Icons.add_circle_outline,
                 booking.addOns
-                    .map((a) => '${a['name']} × ${a['quantity']}')
+                    .map((a) => localizations.serviceName(a['name']?.toString() ?? '') + ' × ' + a['quantity'].toString())
                     .join('، '),
               ),
             info(
