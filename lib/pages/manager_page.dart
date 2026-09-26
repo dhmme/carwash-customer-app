@@ -29,6 +29,7 @@ class _ManagerPageState extends State<ManagerPage> {
       bookings = [],
       invoices = [],
       workers = [];
+  List<dynamic> paymentMethods = [];
   DateTime ledgerFrom = DateTime.now(), ledgerTo = DateTime.now();
 
   @override
@@ -87,6 +88,7 @@ class _ManagerPageState extends State<ManagerPage> {
         api('bookings/'),
         api('invoices/'),
         api('workers/'),
+        api('payment-methods/'),
         api('ledger/?from=${_iso(ledgerFrom)}&to=${_iso(ledgerTo)}'),
       ]);
       if (mounted)
@@ -100,7 +102,8 @@ class _ManagerPageState extends State<ManagerPage> {
           bookings = data[6];
           invoices = data[7];
           workers = data[8];
-          ledger = Map<String, dynamic>.from(data[9]);
+          paymentMethods = data[9];
+          ledger = Map<String, dynamic>.from(data[10]);
         });
     } catch (_) {
       if (mounted) setState(() => error = 'تعذر تحميل بيانات الإدارة');
@@ -274,6 +277,7 @@ class _ManagerPageState extends State<ManagerPage> {
         Icons.directions_car,
       ),
       _catalogSection('الخدمات الإضافية', 'add-ons', addOns, Icons.add_circle),
+      _paymentMethodsSection(),
       _timeSlotsSection(),
     ],
   );
