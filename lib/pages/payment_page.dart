@@ -38,6 +38,7 @@ class _PaymentPageState extends State<PaymentPage> {
   bool sending = false;
   bool onlineConfigLoading = true;
   bool onlineEnabled = false;
+  List<Map<String, dynamic>> paymentMethods = [];
   String? error;
 
   @override
@@ -54,9 +55,28 @@ class _PaymentPageState extends State<PaymentPage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         onlineEnabled = data['online_enabled'] == true;
+        paymentMethods = (data['methods'] as List<dynamic>? ?? const [])
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        if (paymentMethods.isEmpty) {
+          paymentMethods = [
+            {'code': 'cash', 'name': 'كاش'},
+            {'code': 'card', 'name': 'شبكة عند الوصول'},
+            {'code': 'bank_transfer', 'name': 'تحويل بنكي'},
+          ];
+        }
+        if (paymentMethods.isNotEmpty &&
+            !paymentMethods.any((item) => item['code'] == method)) {
+          method = paymentMethods.first['code']?.toString() ?? 'cash';
+        }
       }
     } catch (_) {
       onlineEnabled = false;
+      paymentMethods = [
+        {'code': 'cash', 'name': 'كاش'},
+        {'code': 'card', 'name': 'شبكة عند الوصول'},
+        {'code': 'bank_transfer', 'name': 'تحويل بنكي'},
+      ];
     } finally {
       if (mounted) setState(() => onlineConfigLoading = false);
     }
@@ -212,40 +232,28 @@ class _PaymentPageState extends State<PaymentPage> {
             'طريقة الدفع',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          RadioListTile<String>(
-            value: 'online',
-            groupValue: method,
-            onChanged: onlineEnabled
-                ? (value) => setState(() => method = value!)
-                : null,
-            title: const Text('دفع إلكتروني'),
-            subtitle: Text(
-              onlineConfigLoading
-                  ? 'جاري التحقق من توفر الدفع...'
-                  : onlineEnabled
-                  ? 'مدى، Visa أو Mastercard — تجريبي حاليًا'
-                  : 'سيظهر بعد تفعيل حساب ميسر التجريبي',
+          if (onlineConfigLoading)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            ...paymentMethods.map(
+              (item) => RadioListTile<String>(
+                value: item['code']?.toString() ?? '',
+                groupValue: method,
+                onChanged: (value) => setState(() => method = value!),
+                title: Text(item['name']?.toString() ?? ''),
+                subtitle: (item['instructions']?.toString() ?? '').isEmpty
+                    ? null
+                    : Text(item['instructions'].toString()),
+                secondary: Icon(
+                  item['requires_gateway'] == true
+                      ? Icons.credit_card
+                      : Icons.payments_outlined,
+                ),
+              ),
             ),
-            secondary: const Icon(Icons.credit_card),
-          ),
-          RadioListTile<String>(
-            value: 'cash',
-            groupValue: method,
-            onChanged: (value) => setState(() => method = value!),
-            title: const Text('كاش'),
-          ),
-          RadioListTile<String>(
-            value: 'card',
-            groupValue: method,
-            onChanged: (value) => setState(() => method = value!),
-            title: const Text('شبكة عند الوصول'),
-          ),
-          RadioListTile<String>(
-            value: 'bank_transfer',
-            groupValue: method,
-            onChanged: (value) => setState(() => method = value!),
-            title: const Text('تحويل بنكي'),
-          ),
           if (method == 'online')
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
