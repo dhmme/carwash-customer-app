@@ -278,6 +278,56 @@ class _ManagerPageState extends State<ManagerPage> {
     ],
   );
 
+  Widget _paymentMethodsSection() => Card(
+    child: ExpansionTile(
+      leading: const Icon(Icons.payments), title: const Text('طرق الدفع'), initiallyExpanded: true,
+      trailing: IconButton(tooltip: 'إضافة طريقة دفع', onPressed: () => _paymentMethodDialog(), icon: const Icon(Icons.add)),
+      children: paymentMethods.map((raw) {
+        final item = Map<String, dynamic>.from(raw);
+        return ListTile(
+          leading: Switch(value: item['is_active'] == true, onChanged: (_) => toggleCatalog('payment-methods', item)),
+          title: Text(item['name']?.toString() ?? ''),
+          subtitle: Text((item['instructions']?.toString() ?? '').isEmpty ? (item['requires_gateway'] == true ? 'دفع إلكتروني' : 'دفع عند تنفيذ الخدمة') : item['instructions'].toString()),
+          trailing: Wrap(spacing: 4, children: [
+            IconButton(tooltip: 'تعديل', onPressed: () => _paymentMethodDialog(item), icon: const Icon(Icons.edit)),
+            IconButton(tooltip: 'حذف', onPressed: item['requires_gateway'] == true ? null : () => _deletePaymentMethod(item), icon: const Icon(Icons.delete_outline)),
+          ]),
+        );
+      }).toList(),
+    ),
+  );
+
+  Future<void> _paymentMethodDialog([Map<String, dynamic>? item]) async {
+    final name = TextEditingController(text: item?['name']?.toString() ?? '');
+    final instructions = TextEditingController(text: item?['instructions']?.toString() ?? '');
+    await showDialog(context: context, builder: (dialogContext) => AlertDialog(
+      title: Text(item == null ? 'إضافة طريقة دفع' : 'تعديل طريقة الدفع'),
+      content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: name, decoration: const InputDecoration(labelText: 'اسم طريقة الدفع')),
+        const SizedBox(height: 12),
+        TextField(controller: instructions, maxLines: 2, decoration: const InputDecoration(labelText: 'تعليمات أو وصف (اختياري)')),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+        FilledButton(onPressed: () async {
+          if (name.text.trim().isEmpty) return;
+          Navigator.pop(dialogContext);
+          await saveCatalog('payment-methods', {'name': name.text.trim(), 'instructions': instructions.text.trim()}, item?['id'] as int?);
+        }, child: const Text('حفظ')),
+      ],
+    ));
+  }
+
+  Future<void> _deletePaymentMethod(Map<String, dynamic> item) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('حذف طريقة الدفع'), content: Text('هل تريد حذف ${item['name']}؟'),
+      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')), FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('حذف'))],
+    ));
+    if (confirmed != true) return;
+    try { await api('payment-methods/${item['id']}/', method: 'DELETE'); await loadAll(); }
+    catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا يمكن حذف طريقة مستخدمة سابقًا. يمكنك إيقافها بدلًا من ذلك.'))); }
+  }
+
   Widget _serviceGroupsSection() => Card(
     child: ExpansionTile(
       leading: const Icon(Icons.apps),
@@ -1034,13 +1084,14 @@ class _ManagerPageState extends State<ManagerPage> {
     );
   }
 
-  String _paymentName(dynamic value) => switch (value) {
-    'cash' => 'كاش',
-    'card' => 'شبكة',
-    'bank_transfer' => 'تحويل بنكي',
-    'online' => 'دفع إلكتروني',
-    _ => value?.toString() ?? '',
-  };
+  String _paymentName(dynamic value) {
+    final code = value?.toString() ?? '';
+    for (final raw in paymentMethods) {
+      final item = Map<String, dynamic>.from(raw);
+      if (item['code'] == code) return item['name']?.toString() ?? code;
+    }
+    return code;
+  }
 
   Future<void> _deleteExpense(int id) async {
     await api('expenses/$id/', method: 'DELETE');
@@ -1052,7 +1103,8 @@ class _ManagerPageState extends State<ManagerPage> {
         category = TextEditingController(text: 'مصروف عام'),
         amount = TextEditingController();
     DateTime expenseDate = DateTime.now();
-    String payment = 'cash';
+    final activePaymentMethods = paymentMethods.where((raw) => raw['is_active'] == true).toList();
+    String payment = activePaymentMethods.isEmpty ? 'cash' : activePaymentMethods.first['code']?.toString() ?? 'cash';
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -1101,14 +1153,7 @@ class _ManagerPageState extends State<ManagerPage> {
                   DropdownButtonFormField<String>(
                     initialValue: payment,
                     decoration: const InputDecoration(labelText: 'طريقة الدفع'),
-                    items: const [
-                      DropdownMenuItem(value: 'cash', child: Text('كاش')),
-                      DropdownMenuItem(value: 'card', child: Text('شبكة')),
-                      DropdownMenuItem(
-                        value: 'bank_transfer',
-                        child: Text('تحويل بنكي'),
-                      ),
-                    ],
+                    items: activePaymentMethods.map((raw) => DropdownMenuItem<String>(value: raw['code']?.toString(), child: Text(raw['name']?.toString() ?? ''))).toList(),
                     onChanged: (v) => payment = v ?? 'cash',
                   ),
                 ],
