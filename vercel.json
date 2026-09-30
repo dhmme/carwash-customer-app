@@ -1,5 +1,27 @@
 {
   "outputDirectory": "build/web",
+  "headers": [
+    {
+      "source": "/",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/flutter_bootstrap.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/flutter_service_worker.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/version.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    }
+  ],
   "routes": [
     { "handle": "filesystem" },
     { "src": "/.*", "dest": "/index.html" }

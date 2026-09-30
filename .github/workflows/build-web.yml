@@ -36,11 +36,11 @@ jobs:
         run: flutter test
 
       - name: Build customer web app
-        run: flutter build web --release -t lib/main.dart
+        run: flutter build web --release --pwa-strategy=none -t lib/main.dart
 
       - name: Build worker web app
         run: |
-          flutter build web --release -t lib/main_worker.dart
+          flutter build web --release --pwa-strategy=none -t lib/main_worker.dart
           rm -rf deploy/worker
           mkdir -p deploy/worker
           cp -R build/web/. deploy/worker/
@@ -48,14 +48,14 @@ jobs:
 
       - name: Build manager web app
         run: |
-          flutter build web --release -t lib/main_manager.dart
+          flutter build web --release --pwa-strategy=none -t lib/main_manager.dart
           rm -rf deploy/manager
           mkdir -p deploy/manager
           cp -R build/web/. deploy/manager/
           cp vercel.role.json deploy/manager/vercel.json
 
       - name: Restore customer web app
-        run: flutter build web --release -t lib/main.dart
+        run: flutter build web --release --pwa-strategy=none -t lib/main.dart
 
       - name: Commit generated web files
         run: |

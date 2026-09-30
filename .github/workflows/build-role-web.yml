@@ -24,7 +24,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Build role web application
-        run: flutter build web --release -t ${{ matrix.target }}
+        run: flutter build web --release --pwa-strategy=none -t ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
           name: code-care-${{ matrix.role }}-web

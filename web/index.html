@@ -34,6 +34,27 @@
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCqk1aLWtpbCeKpPlaJod_QFvYS2z_7kNU&libraries=places"></script>
 </head>
 <body>
+  <script>
+    // Flutter's generated service worker can keep an older release active on
+    // mobile browsers. Code Care is an online-only app, so remove legacy
+    // registrations and caches before booting the current release.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        for (const key of keys) {
+          if (key.startsWith('flutter-app-cache')) {
+            caches.delete(key);
+          }
+        }
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
