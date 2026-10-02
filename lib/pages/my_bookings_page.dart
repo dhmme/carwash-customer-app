@@ -122,6 +122,22 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
   }
 
+  Future<http.Response> _sendCancellation(
+    Map<String, dynamic> booking, {
+    bool retryAfterRefresh = true,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${widget.baseUrl}/api/bookings/${booking['id']}/cancel/'),
+      headers: Session.authHeaders,
+    );
+    if (response.statusCode == 401 &&
+        retryAfterRefresh &&
+        await Session.refresh()) {
+      return _sendCancellation(booking, retryAfterRefresh: false);
+    }
+    return response;
+  }
+
   Future<void> _cancelBooking(Map<String, dynamic> booking) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -144,10 +160,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     );
     if (confirmed != true) return;
     try {
-      final response = await http.post(
-        Uri.parse('${widget.baseUrl}/api/bookings/${booking['id']}/cancel/'),
-        headers: Session.authHeaders,
-      );
+      final response = await _sendCancellation(booking);
       if (response.statusCode == 200) {
         await _load();
         if (mounted) {
@@ -158,15 +171,21 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
           );
         }
       } else {
-        throw Exception();
+        var message = 'تعذر إلغاء الحجز. حاول مرة أخرى.';
+        try {
+          final data = jsonDecode(utf8.decode(response.bodyBytes));
+          message = data['detail']?.toString() ?? message;
+        } catch (_) {}
+        throw Exception(message);
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تعذر إلغاء الحجز. قد يكون التنفيذ قد بدأ.'),
-          ),
-        );
+        final raw = error.toString();
+        final message = raw.startsWith('Exception: ')
+            ? raw.substring('Exception: '.length)
+            : 'تعذر إلغاء الحجز. حاول مرة أخرى.';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
       }
     }
   }
