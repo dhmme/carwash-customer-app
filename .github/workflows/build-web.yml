@@ -36,7 +36,9 @@ jobs:
         run: flutter test
 
       - name: Build customer web app
-        run: flutter build web --release --pwa-strategy=none -t lib/main.dart
+        run: |
+          flutter build web --release --pwa-strategy=none -t lib/main.dart
+          cp vercel.json build/web/vercel.json
 
       - name: Build worker web app
         run: |
@@ -55,7 +57,9 @@ jobs:
           cp vercel.role.json deploy/manager/vercel.json
 
       - name: Restore customer web app
-        run: flutter build web --release --pwa-strategy=none -t lib/main.dart
+        run: |
+          flutter build web --release --pwa-strategy=none -t lib/main.dart
+          cp vercel.json build/web/vercel.json
 
       - name: Commit generated web files
         run: |
