@@ -37,6 +37,16 @@
     // Flutter's generated service worker can keep an older release active on
     // mobile browsers. Code Care is an online-only app, so remove legacy
     // registrations and caches before booting the current release.
+    let flutterStarted = false;
+    const loadFlutter = () => {
+      if (flutterStarted) return;
+      flutterStarted = true;
+      const script = document.createElement('script');
+      script.src = 'flutter_bootstrap.js';
+      script.async = true;
+      document.body.appendChild(script);
+    };
+
     const clearLegacyFlutterCache = async () => {
       const wasControlled = Boolean(navigator.serviceWorker?.controller);
       const tasks = [];
@@ -74,18 +84,17 @@
       return false;
     };
 
-    const loadFlutter = () => {
-      const script = document.createElement('script');
-      script.src = 'flutter_bootstrap.js';
-      script.async = true;
-      document.body.appendChild(script);
-    };
-
-    clearLegacyFlutterCache()
+    // Safari can occasionally leave Cache Storage or Service Worker promises
+    // pending. Never let cache cleanup prevent the Flutter app from starting.
+    Promise.race([
+      clearLegacyFlutterCache(),
+      new Promise((resolve) => setTimeout(() => resolve(false), 1500)),
+    ])
       .then((reloading) => {
         if (!reloading) loadFlutter();
       })
       .catch(loadFlutter);
+    setTimeout(loadFlutter, 2500);
   </script>
 </body>
 </html>
