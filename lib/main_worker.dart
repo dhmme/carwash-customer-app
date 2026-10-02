@@ -12,7 +12,7 @@ const String baseUrl = AppConfig.apiBaseUrl;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Session.load();
+  await Session.restore();
   final language = await WorkerLocalizations.loadLanguage();
   runApp(WorkerApp(initialLanguage: language));
 }
