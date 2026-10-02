@@ -10,7 +10,7 @@ const baseUrl = AppConfig.apiBaseUrl;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Session.load();
+  await Session.restore();
   runApp(const ManagerApp());
 }
 
