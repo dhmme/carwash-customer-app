@@ -18,6 +18,18 @@ class Session {
     refreshToken = await _storage.read(key: _refreshKey);
   }
 
+  /// Restores a persisted session only when the server can renew it.
+  /// This prevents an expired token saved by Safari from leaving the app in a
+  /// half-signed-in state where authenticated actions silently fail.
+  static Future<void> restore() async {
+    await load();
+    if (refreshToken == null) {
+      if (accessToken != null) await clear();
+      return;
+    }
+    if (!await refresh()) await clear();
+  }
+
   static Future<void> saveTokens(String access, String refresh) async {
     accessToken = access;
     refreshToken = refresh;
