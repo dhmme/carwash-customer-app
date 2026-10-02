@@ -122,6 +122,55 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
   }
 
+  Future<void> _cancelBooking(Map<String, dynamic> booking) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('إلغاء الحجز'),
+        content: Text(
+          'هل تريد إلغاء حجز ${booking['date']}، ${booking['time_slot']}؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('تراجع'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('تأكيد الإلغاء'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final response = await http.post(
+        Uri.parse('${widget.baseUrl}/api/bookings/${booking['id']}/cancel/'),
+        headers: Session.authHeaders,
+      );
+      if (response.statusCode == 200) {
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم إلغاء الحجز وإتاحة الوقت من جديد.'),
+            ),
+          );
+        }
+      } else {
+        throw Exception();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تعذر إلغاء الحجز. قد يكون التنفيذ قد بدأ.'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -157,66 +206,96 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                   final checkoutUrl =
                       booking['payment_checkout_url']?.toString() ?? '';
                   final paymentLabel = _paymentStatus(paymentStatus);
+                  final canCancel = status == 'pending' || status == 'accepted';
                   return Card(
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _statusColor(status),
-                        child: const Icon(
-                          Icons.local_car_wash,
-                          color: Colors.white,
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: _statusColor(status),
+                            child: const Icon(
+                              Icons.local_car_wash,
+                              color: Colors.white,
+                            ),
+                          ),
+                          title: Text(
+                            booking['service_name']?.toString() ??
+                                'غسيل سيارات',
+                          ),
+                          subtitle: Text(
+                            '${booking['date']} • ${booking['time_slot']}\n'
+                            '${_status(status, paymentStatus)}'
+                            '${paymentLabel.isEmpty ? '' : ' • $paymentLabel'}',
+                          ),
+                          isThreeLine: true,
+                          trailing: SizedBox(
+                            width: 115,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('${booking['total_price']} ر.س'),
+                                const SizedBox(height: 5),
+                                if (checkoutUrl.isNotEmpty &&
+                                    paymentStatus == 'pending')
+                                  FilledButton.icon(
+                                    onPressed: () => _openCheckout(checkoutUrl),
+                                    icon: const Icon(
+                                      Icons.credit_card,
+                                      size: 17,
+                                    ),
+                                    label: const Text('إكمال الدفع'),
+                                    style: FilledButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 5,
+                                      ),
+                                    ),
+                                  )
+                                else if (invoiceUrl.isNotEmpty &&
+                                    status != 'canceled')
+                                  OutlinedButton.icon(
+                                    onPressed: () => _openInvoice(invoiceUrl),
+                                    icon: const Icon(
+                                      Icons.receipt_long_outlined,
+                                      size: 17,
+                                    ),
+                                    label: const Text('الفاتورة'),
+                                    style: OutlinedButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 5,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      title: Text(
-                        booking['service_name']?.toString() ?? 'غسيل سيارات',
-                      ),
-                      subtitle: Text(
-                        '${booking['date']} • ${booking['time_slot']}\n'
-                        '${_status(status, paymentStatus)}'
-                        '${paymentLabel.isEmpty ? '' : ' • $paymentLabel'}',
-                      ),
-                      isThreeLine: true,
-                      trailing: SizedBox(
-                        width: 115,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('${booking['total_price']} ر.س'),
-                            const SizedBox(height: 5),
-                            if (checkoutUrl.isNotEmpty &&
-                                paymentStatus == 'pending')
-                              FilledButton.icon(
-                                onPressed: () => _openCheckout(checkoutUrl),
-                                icon: const Icon(Icons.credit_card, size: 17),
-                                label: const Text('إكمال الدفع'),
-                                style: FilledButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 5,
-                                  ),
-                                ),
-                              )
-                            else if (invoiceUrl.isNotEmpty &&
-                                status != 'canceled')
-                              OutlinedButton.icon(
-                                onPressed: () => _openInvoice(invoiceUrl),
+                        if (canCancel)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 12,
+                                bottom: 8,
+                              ),
+                              child: TextButton.icon(
+                                onPressed: () => _cancelBooking(booking),
                                 icon: const Icon(
-                                  Icons.receipt_long_outlined,
-                                  size: 17,
+                                  Icons.cancel_outlined,
+                                  color: Colors.redAccent,
                                 ),
-                                label: const Text('الفاتورة'),
-                                style: OutlinedButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 5,
-                                  ),
+                                label: const Text(
+                                  'إلغاء الحجز',
+                                  style: TextStyle(color: Colors.redAccent),
                                 ),
                               ),
-                          ],
-                        ),
-                      ),
+                            ),
+                          ),
+                      ],
                     ),
                   );
                 },

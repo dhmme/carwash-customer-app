@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../session.dart';
@@ -28,7 +30,8 @@ class _ManagerPageState extends State<ManagerPage> {
       timeSlots = [],
       bookings = [],
       invoices = [],
-      workers = [];
+      workers = [],
+      customers = [];
   List<dynamic> paymentMethods = [];
   DateTime ledgerFrom = DateTime.now(), ledgerTo = DateTime.now();
 
@@ -88,6 +91,7 @@ class _ManagerPageState extends State<ManagerPage> {
         api('bookings/'),
         api('invoices/'),
         api('workers/'),
+        api('customers/'),
         api('payment-methods/'),
         api('ledger/?from=${_iso(ledgerFrom)}&to=${_iso(ledgerTo)}'),
       ]);
@@ -102,8 +106,9 @@ class _ManagerPageState extends State<ManagerPage> {
           bookings = data[6];
           invoices = data[7];
           workers = data[8];
-          paymentMethods = data[9];
-          ledger = Map<String, dynamic>.from(data[10]);
+          customers = data[9];
+          paymentMethods = data[10];
+          ledger = Map<String, dynamic>.from(data[11]);
         });
     } catch (_) {
       if (mounted) setState(() => error = 'تعذر تحميل بيانات الإدارة');
@@ -143,6 +148,67 @@ class _ManagerPageState extends State<ManagerPage> {
     if (r.statusCode == 200) await loadAll();
   }
 
+  Future<void> cancelBooking(Map<String, dynamic> booking) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('إلغاء الحجز'),
+        content: Text(
+          'هل تريد إلغاء حجز ${booking['customer_name']} في ${booking['date']}، ${booking['time_slot']}؟\nسيعود الوقت متاحًا للعملاء فورًا.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('تراجع'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('تأكيد الإلغاء'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await api('bookings/${booking['id']}/cancel/', method: 'POST');
+      await loadAll();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم إلغاء الحجز وإتاحة الوقت من جديد.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('تعذر إلغاء الحجز.')));
+      }
+    }
+  }
+
+  Future<void> exportCustomers() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/manager/customers/export/'),
+        headers: Session.authHeaders,
+      );
+      if (response.statusCode != 200) throw Exception();
+      await FileSaver.instance.saveFile(
+        name: 'code-care-customers',
+        bytes: response.bodyBytes,
+        fileExtension: 'xlsx',
+        mimeType: MimeType.custom,
+        customMimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر تصدير بيانات العملاء.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const titles = [
@@ -151,6 +217,7 @@ class _ManagerPageState extends State<ManagerPage> {
       'الطلبات',
       'الفواتير',
       'العمال',
+      'العملاء',
       'دفتر اليومية',
     ];
     return Scaffold(
@@ -188,6 +255,7 @@ class _ManagerPageState extends State<ManagerPage> {
                 _bookings(),
                 _invoices(),
                 _workers(),
+                _customers(),
                 _ledger(),
               ],
             ),
@@ -206,6 +274,7 @@ class _ManagerPageState extends State<ManagerPage> {
             label: 'الفواتير',
           ),
           NavigationDestination(icon: Icon(Icons.engineering), label: 'العمال'),
+          NavigationDestination(icon: Icon(Icons.people), label: 'العملاء'),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet),
             label: 'اليومية',
@@ -225,38 +294,74 @@ class _ManagerPageState extends State<ManagerPage> {
       ('العملاء', stats['customers'], Icons.people),
       ('العمال', stats['workers'], Icons.engineering),
     ];
-    return GridView.builder(
+    final today = _iso(DateTime.now());
+    final todayBookings = bookings.where((b) => b['date'] == today).toList();
+    return ListView(
       padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 300,
-        mainAxisExtent: 145,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: cards.length,
-      itemBuilder: (_, i) {
-        final c = cards[i];
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(c.$3, size: 30, color: AppColors.cerulean),
-                const Spacer(),
-                Text(
-                  '${c.$2}',
-                  style: const TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold,
-                  ),
+      children: [
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 300,
+            mainAxisExtent: 145,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: cards.length,
+          itemBuilder: (_, i) {
+            final c = cards[i];
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(c.$3, size: 30, color: AppColors.cerulean),
+                    const Spacer(),
+                    Text(
+                      '${c.$2}',
+                      style: const TextStyle(
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(c.$1, style: const TextStyle(color: AppColors.muted)),
+                  ],
                 ),
-                Text(c.$1, style: const TextStyle(color: AppColors.muted)),
-              ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 22),
+        const Text(
+          'حجوزات اليوم',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        if (todayBookings.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('لا توجد حجوزات اليوم')),
             ),
           ),
-        );
-      },
+        ...todayBookings.map((raw) {
+          final b = Map<String, dynamic>.from(raw);
+          return Card(
+            child: ListTile(
+              leading: const Icon(Icons.schedule),
+              title: Text('${b['time_slot']} — ${b['customer_name']}'),
+              subtitle: Text(
+                '${b['customer_phone']} • ${b['service_name']}\n${b['address_text'] ?? ''}',
+              ),
+              isThreeLine: true,
+              trailing: Text('${b['total_price']} ر.س'),
+              onTap: () => setState(() => tab = 2),
+            ),
+          );
+        }),
+      ],
     );
   }
 
@@ -284,18 +389,46 @@ class _ManagerPageState extends State<ManagerPage> {
 
   Widget _paymentMethodsSection() => Card(
     child: ExpansionTile(
-      leading: const Icon(Icons.payments), title: const Text('طرق الدفع'), initiallyExpanded: true,
-      trailing: IconButton(tooltip: 'إضافة طريقة دفع', onPressed: () => _paymentMethodDialog(), icon: const Icon(Icons.add)),
+      leading: const Icon(Icons.payments),
+      title: const Text('طرق الدفع'),
+      initiallyExpanded: true,
+      trailing: IconButton(
+        tooltip: 'إضافة طريقة دفع',
+        onPressed: () => _paymentMethodDialog(),
+        icon: const Icon(Icons.add),
+      ),
       children: paymentMethods.map((raw) {
         final item = Map<String, dynamic>.from(raw);
         return ListTile(
-          leading: Switch(value: item['is_active'] == true, onChanged: (_) => toggleCatalog('payment-methods', item)),
+          leading: Switch(
+            value: item['is_active'] == true,
+            onChanged: (_) => toggleCatalog('payment-methods', item),
+          ),
           title: Text(item['name']?.toString() ?? ''),
-          subtitle: Text((item['instructions']?.toString() ?? '').isEmpty ? (item['requires_gateway'] == true ? 'دفع إلكتروني' : 'دفع عند تنفيذ الخدمة') : item['instructions'].toString()),
-          trailing: Wrap(spacing: 4, children: [
-            IconButton(tooltip: 'تعديل', onPressed: () => _paymentMethodDialog(item), icon: const Icon(Icons.edit)),
-            IconButton(tooltip: 'حذف', onPressed: item['requires_gateway'] == true ? null : () => _deletePaymentMethod(item), icon: const Icon(Icons.delete_outline)),
-          ]),
+          subtitle: Text(
+            (item['instructions']?.toString() ?? '').isEmpty
+                ? (item['requires_gateway'] == true
+                      ? 'دفع إلكتروني'
+                      : 'دفع عند تنفيذ الخدمة')
+                : item['instructions'].toString(),
+          ),
+          trailing: Wrap(
+            spacing: 4,
+            children: [
+              IconButton(
+                tooltip: 'تعديل',
+                onPressed: () => _paymentMethodDialog(item),
+                icon: const Icon(Icons.edit),
+              ),
+              IconButton(
+                tooltip: 'حذف',
+                onPressed: item['requires_gateway'] == true
+                    ? null
+                    : () => _deletePaymentMethod(item),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ),
         );
       }).toList(),
     ),
@@ -303,33 +436,86 @@ class _ManagerPageState extends State<ManagerPage> {
 
   Future<void> _paymentMethodDialog([Map<String, dynamic>? item]) async {
     final name = TextEditingController(text: item?['name']?.toString() ?? '');
-    final instructions = TextEditingController(text: item?['instructions']?.toString() ?? '');
-    await showDialog(context: context, builder: (dialogContext) => AlertDialog(
-      title: Text(item == null ? 'إضافة طريقة دفع' : 'تعديل طريقة الدفع'),
-      content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(controller: name, decoration: const InputDecoration(labelText: 'اسم طريقة الدفع')),
-        const SizedBox(height: 12),
-        TextField(controller: instructions, maxLines: 2, decoration: const InputDecoration(labelText: 'تعليمات أو وصف (اختياري)')),
-      ])),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
-        FilledButton(onPressed: () async {
-          if (name.text.trim().isEmpty) return;
-          Navigator.pop(dialogContext);
-          await saveCatalog('payment-methods', {'name': name.text.trim(), 'instructions': instructions.text.trim()}, item?['id'] as int?);
-        }, child: const Text('حفظ')),
-      ],
-    ));
+    final instructions = TextEditingController(
+      text: item?['instructions']?.toString() ?? '',
+    );
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(item == null ? 'إضافة طريقة دفع' : 'تعديل طريقة الدفع'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: 'اسم طريقة الدفع'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: instructions,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'تعليمات أو وصف (اختياري)',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (name.text.trim().isEmpty) return;
+              Navigator.pop(dialogContext);
+              await saveCatalog('payment-methods', {
+                'name': name.text.trim(),
+                'instructions': instructions.text.trim(),
+              }, item?['id'] as int?);
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _deletePaymentMethod(Map<String, dynamic> item) async {
-    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
-      title: const Text('حذف طريقة الدفع'), content: Text('هل تريد حذف ${item['name']}؟'),
-      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')), FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('حذف'))],
-    ));
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف طريقة الدفع'),
+        content: Text('هل تريد حذف ${item['name']}؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
     if (confirmed != true) return;
-    try { await api('payment-methods/${item['id']}/', method: 'DELETE'); await loadAll(); }
-    catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا يمكن حذف طريقة مستخدمة سابقًا. يمكنك إيقافها بدلًا من ذلك.'))); }
+    try {
+      await api('payment-methods/${item['id']}/', method: 'DELETE');
+      await loadAll();
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'لا يمكن حذف طريقة مستخدمة سابقًا. يمكنك إيقافها بدلًا من ذلك.',
+            ),
+          ),
+        );
+    }
   }
 
   Widget _serviceGroupsSection() => Card(
@@ -723,22 +909,43 @@ class _ManagerPageState extends State<ManagerPage> {
           subtitle: Text(
             '${b['date']} • ${b['time_slot']}\n${b['car_name']} • ${b['total_price']} ر.س',
           ),
-          trailing: DropdownButton<String>(
-            value: b['status'],
-            items: const [
-              DropdownMenuItem(value: 'pending', child: Text('مؤكد')),
-              DropdownMenuItem(value: 'accepted', child: Text('مؤكد')),
-              DropdownMenuItem(value: 'on_the_way', child: Text('في الطريق')),
-              DropdownMenuItem(
-                value: 'in_progress',
-                child: Text('قيد التنفيذ'),
+          trailing: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              DropdownButton<String>(
+                value: b['status'],
+                items: const [
+                  DropdownMenuItem(value: 'pending', child: Text('مؤكد')),
+                  DropdownMenuItem(value: 'accepted', child: Text('مؤكد')),
+                  DropdownMenuItem(
+                    value: 'on_the_way',
+                    child: Text('في الطريق'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'in_progress',
+                    child: Text('قيد التنفيذ'),
+                  ),
+                  DropdownMenuItem(value: 'completed', child: Text('مكتمل')),
+                  DropdownMenuItem(value: 'canceled', child: Text('ملغي')),
+                ],
+                onChanged:
+                    b['status'] == 'completed' || b['status'] == 'canceled'
+                    ? null
+                    : (v) {
+                        if (v != null && v != 'canceled')
+                          setBookingStatus(b['id'], v);
+                      },
               ),
-              DropdownMenuItem(value: 'completed', child: Text('مكتمل')),
-              DropdownMenuItem(value: 'canceled', child: Text('ملغي')),
+              if (b['status'] != 'completed' && b['status'] != 'canceled')
+                IconButton(
+                  tooltip: 'إلغاء الحجز وإتاحة الوقت',
+                  onPressed: () => cancelBooking(b),
+                  icon: const Icon(
+                    Icons.cancel_outlined,
+                    color: Colors.redAccent,
+                  ),
+                ),
             ],
-            onChanged: (v) {
-              if (v != null) setBookingStatus(b['id'], v);
-            },
           ),
         ),
       );
@@ -796,6 +1003,15 @@ class _ManagerPageState extends State<ManagerPage> {
         ),
       ),
       actions: [
+        if ((x['print_url']?.toString() ?? '').isNotEmpty)
+          FilledButton.icon(
+            onPressed: () => launchUrl(
+              Uri.parse(x['print_url'].toString()),
+              webOnlyWindowName: '_blank',
+            ),
+            icon: const Icon(Icons.print),
+            label: const Text('فتح وطباعة الفاتورة'),
+          ),
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('إغلاق'),
@@ -832,6 +1048,65 @@ class _ManagerPageState extends State<ManagerPage> {
             title: Text(w['first_name'] ?? ''),
             subtitle: Text(w['username'] ?? ''),
             secondary: const Icon(Icons.engineering),
+          ),
+        );
+      }),
+    ],
+  );
+
+  Widget _customers() => ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: FilledButton.icon(
+          onPressed: exportCustomers,
+          icon: const Icon(Icons.download),
+          label: const Text('تصدير Excel'),
+        ),
+      ),
+      const SizedBox(height: 12),
+      if (customers.isEmpty)
+        const Card(
+          child: Padding(
+            padding: EdgeInsets.all(30),
+            child: Center(child: Text('لا يوجد عملاء مسجلون')),
+          ),
+        ),
+      ...customers.map((raw) {
+        final customer = Map<String, dynamic>.from(raw);
+        return Card(
+          child: ExpansionTile(
+            leading: const CircleAvatar(child: Icon(Icons.person)),
+            title: Text(customer['name']?.toString() ?? ''),
+            subtitle: Text(
+              '${customer['phone']} • ${customer['booking_count']} حجوزات',
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            children: [
+              ListTile(
+                title: const Text('البريد الإلكتروني'),
+                trailing: Text(
+                  (customer['email']?.toString() ?? '').isEmpty
+                      ? 'غير مسجل'
+                      : customer['email'].toString(),
+                ),
+              ),
+              ListTile(
+                title: const Text('تاريخ التسجيل'),
+                trailing: Text(
+                  (customer['date_joined']?.toString() ?? '').split('T').first,
+                ),
+              ),
+              ListTile(
+                title: const Text('الحجوزات المكتملة'),
+                trailing: Text('${customer['completed_count']}'),
+              ),
+              ListTile(
+                title: const Text('إجمالي المبالغ المكتملة'),
+                trailing: Text('${customer['total_spent']} ر.س'),
+              ),
+            ],
           ),
         );
       }),
@@ -1107,8 +1382,12 @@ class _ManagerPageState extends State<ManagerPage> {
         category = TextEditingController(text: 'مصروف عام'),
         amount = TextEditingController();
     DateTime expenseDate = DateTime.now();
-    final activePaymentMethods = paymentMethods.where((raw) => raw['is_active'] == true).toList();
-    String payment = activePaymentMethods.isEmpty ? 'cash' : activePaymentMethods.first['code']?.toString() ?? 'cash';
+    final activePaymentMethods = paymentMethods
+        .where((raw) => raw['is_active'] == true)
+        .toList();
+    String payment = activePaymentMethods.isEmpty
+        ? 'cash'
+        : activePaymentMethods.first['code']?.toString() ?? 'cash';
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -1157,7 +1436,14 @@ class _ManagerPageState extends State<ManagerPage> {
                   DropdownButtonFormField<String>(
                     initialValue: payment,
                     decoration: const InputDecoration(labelText: 'طريقة الدفع'),
-                    items: activePaymentMethods.map((raw) => DropdownMenuItem<String>(value: raw['code']?.toString(), child: Text(raw['name']?.toString() ?? ''))).toList(),
+                    items: activePaymentMethods
+                        .map(
+                          (raw) => DropdownMenuItem<String>(
+                            value: raw['code']?.toString(),
+                            child: Text(raw['name']?.toString() ?? ''),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (v) => payment = v ?? 'cash',
                   ),
                 ],
