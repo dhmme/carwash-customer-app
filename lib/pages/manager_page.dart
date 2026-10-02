@@ -177,10 +177,20 @@ class _ManagerPageState extends State<ManagerPage> {
           const SnackBar(content: Text('تم إلغاء الحجز وإتاحة الوقت من جديد.')),
         );
       }
-    } catch (_) {
+    } catch (exception) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('تعذر إلغاء الحجز.')));
+        var message = 'تعذر إلغاء الحجز. حاول مرة أخرى.';
+        final raw = exception.toString();
+        final jsonStart = raw.indexOf('{');
+        if (jsonStart >= 0) {
+          try {
+            final data = jsonDecode(raw.substring(jsonStart));
+            message = data['detail']?.toString() ?? message;
+          } catch (_) {}
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
       }
     }
   }
