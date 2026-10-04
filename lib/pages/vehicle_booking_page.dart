@@ -186,10 +186,6 @@ class _VehicleBookingPageState extends State<VehicleBookingPage> {
       .toList();
   double total() {
     double value = double.tryParse(service?['price']?.toString() ?? '0') ?? 0;
-    for (final c in categories) {
-      if (c['key'] == car?['category'])
-        value += double.tryParse(c['price_adjustment'].toString()) ?? 0;
-    }
     for (final x in selectedAddOns()) {
       value +=
           (double.tryParse(x['price'].toString()) ?? 0) *
