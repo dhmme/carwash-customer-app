@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../session.dart';
 import '../app_theme.dart';
@@ -34,6 +35,20 @@ class _AuthPageState extends State<AuthPage> {
   bool _register = false;
   bool _loading = false;
   String? _error;
+  static const supportWhatsApp = String.fromEnvironment(
+    'SUPPORT_WHATSAPP',
+    defaultValue: '',
+  );
+
+  Future<void> _openSupport() async {
+    if (supportWhatsApp.isEmpty) return;
+    await launchUrl(
+      Uri.parse(
+        'https://wa.me/$supportWhatsApp?text=${Uri.encodeComponent('مرحبًا، أحتاج مساعدة في تطبيق Code Care')}',
+      ),
+      mode: LaunchMode.externalApplication,
+    );
+  }
 
   @override
   void dispose() {
@@ -84,9 +99,8 @@ class _AuthPageState extends State<AuthPage> {
           final firstError = data.values.isNotEmpty
               ? data.values.first.toString()
               : null;
-          _error = data['detail']?.toString() ??
-              firstError ??
-              'تعذر إكمال العملية.';
+          _error =
+              data['detail']?.toString() ?? firstError ?? 'تعذر إكمال العملية.';
         });
       }
     } catch (_) {
@@ -102,7 +116,11 @@ class _AuthPageState extends State<AuthPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [AppColors.navy, AppColors.ceruleanDark, AppColors.cerulean],
+            colors: [
+              AppColors.navy,
+              AppColors.ceruleanDark,
+              AppColors.cerulean,
+            ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -118,8 +136,11 @@ class _AuthPageState extends State<AuthPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.local_car_wash,
-                          size: 58, color: AppColors.cerulean),
+                      const Icon(
+                        Icons.local_car_wash,
+                        size: 58,
+                        color: AppColors.cerulean,
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         _register ? 'إنشاء حساب' : 'تسجيل الدخول',
@@ -133,7 +154,8 @@ class _AuthPageState extends State<AuthPage> {
                             labelText: 'الاسم',
                             border: OutlineInputBorder(),
                           ),
-                          validator: (value) => value == null || value.trim().isEmpty
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
                               ? 'أدخل الاسم'
                               : null,
                         ),
@@ -145,7 +167,8 @@ class _AuthPageState extends State<AuthPage> {
                           labelText: 'رقم الجوال',
                           border: OutlineInputBorder(),
                         ),
-                        validator: (value) => value == null || value.trim().length < 10
+                        validator: (value) =>
+                            value == null || value.trim().length < 10
                             ? 'أدخل رقم جوال صحيح'
                             : null,
                       ),
@@ -163,7 +186,10 @@ class _AuthPageState extends State<AuthPage> {
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 12),
-                        Text(_error!, style: const TextStyle(color: Colors.red)),
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                       ],
                       const SizedBox(height: 18),
                       SizedBox(
@@ -174,22 +200,35 @@ class _AuthPageState extends State<AuthPage> {
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : Text(_register ? 'إنشاء الحساب' : 'دخول'),
                         ),
                       ),
-                      if (widget.allowRegister) TextButton(
-                        onPressed: _loading
-                            ? null
-                            : () => setState(() {
+                      if (widget.allowRegister)
+                        TextButton(
+                          onPressed: _loading
+                              ? null
+                              : () => setState(() {
                                   _register = !_register;
                                   _error = null;
                                 }),
-                        child: Text(_register
-                            ? 'لديك حساب؟ سجل الدخول'
-                            : 'ليس لديك حساب؟ أنشئ حساباً'),
-                      ),
+                          child: Text(
+                            _register
+                                ? 'لديك حساب؟ سجل الدخول'
+                                : 'ليس لديك حساب؟ أنشئ حساباً',
+                          ),
+                        ),
+                      if (widget.allowRegister && supportWhatsApp.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: _openSupport,
+                          icon: const Icon(Icons.support_agent),
+                          label: const Text(
+                            'تواصل معنا عبر واتساب للدعم الفني',
+                          ),
+                        ),
                     ],
                   ),
                 ),
