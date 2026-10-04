@@ -33,6 +33,7 @@ class _ManagerPageState extends State<ManagerPage> {
       workers = [],
       customers = [];
   List<dynamic> paymentMethods = [];
+  List<dynamic> promoCodes = [];
   DateTime ledgerFrom = DateTime.now(), ledgerTo = DateTime.now();
 
   @override
@@ -93,6 +94,7 @@ class _ManagerPageState extends State<ManagerPage> {
         api('workers/'),
         api('customers/'),
         api('payment-methods/'),
+        api('promo-codes/'),
         api('ledger/?from=${_iso(ledgerFrom)}&to=${_iso(ledgerTo)}'),
       ]);
       if (mounted)
@@ -108,7 +110,8 @@ class _ManagerPageState extends State<ManagerPage> {
           workers = data[8];
           customers = data[9];
           paymentMethods = data[10];
-          ledger = Map<String, dynamic>.from(data[11]);
+          promoCodes = data[11];
+          ledger = Map<String, dynamic>.from(data[12]);
         });
     } catch (_) {
       if (mounted) setState(() => error = 'تعذر تحميل بيانات الإدارة');
@@ -188,9 +191,8 @@ class _ManagerPageState extends State<ManagerPage> {
             message = data['detail']?.toString() ?? message;
           } catch (_) {}
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
       }
     }
   }
@@ -393,9 +395,96 @@ class _ManagerPageState extends State<ManagerPage> {
       ),
       _catalogSection('الخدمات الإضافية', 'add-ons', addOns, Icons.add_circle),
       _paymentMethodsSection(),
+      _promoCodesSection(),
       _timeSlotsSection(),
     ],
   );
+
+  Widget _promoCodesSection() => Card(
+    child: ExpansionTile(
+      leading: const Icon(Icons.discount_outlined),
+      title: const Text('أكواد الخصم'),
+      trailing: IconButton(
+        tooltip: 'إضافة كود خصم',
+        onPressed: () => _promoCodeDialog(),
+        icon: const Icon(Icons.add),
+      ),
+      children: promoCodes.map((raw) {
+        final item = Map<String, dynamic>.from(raw);
+        return ListTile(
+          leading: Switch(
+            value: item['is_active'] == true,
+            onChanged: (_) => toggleCatalog('promo-codes', item),
+          ),
+          title: Text(item['code']?.toString() ?? ''),
+          subtitle: Text('خصم ${item['discount_amount']} ر.س'),
+          trailing: IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () => _promoCodeDialog(item),
+          ),
+        );
+      }).toList(),
+    ),
+  );
+
+  Future<void> _promoCodeDialog([Map<String, dynamic>? item]) async {
+    final code = TextEditingController(text: item?['code']?.toString() ?? '');
+    final amount = TextEditingController(
+      text: item?['discount_amount']?.toString() ?? '',
+    );
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(item == null ? 'إضافة كود خصم' : 'تعديل كود الخصم'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: code,
+                enabled: item == null,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'اسم الكود، مثل WELCOME',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amount,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'قيمة الخصم بالريال',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (code.text.trim().isEmpty ||
+                  (double.tryParse(amount.text) ?? 0) <= 0)
+                return;
+              Navigator.pop(dialogContext);
+              await saveCatalog('promo-codes', {
+                'code': code.text.trim().toUpperCase(),
+                'discount_amount': amount.text,
+                'is_active': item?['is_active'] ?? true,
+              }, item?['id']);
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _paymentMethodsSection() => Card(
     child: ExpansionTile(
@@ -768,7 +857,7 @@ class _ManagerPageState extends State<ManagerPage> {
           title: Text(x['name'] ?? ''),
           subtitle: Text(
             type == 'categories'
-                ? 'زيادة السعر: ${x['price_adjustment']} ر.س'
+                ? 'بدون زيادة سعر'
                 : '${x['price']} ر.س${type == 'add-ons' ? ' / ${x['unit']}' : ''}',
           ),
           leading: Switch(
@@ -809,10 +898,11 @@ class _ManagerPageState extends State<ManagerPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: name,
-                    decoration: const InputDecoration(labelText: 'الاسم'),
-                  ),
+                  if (type != 'categories')
+                    TextField(
+                      controller: name,
+                      decoration: const InputDecoration(labelText: 'الاسم'),
+                    ),
                   const SizedBox(height: 10),
                   if (type == 'services') ...[
                     DropdownButtonFormField<int>(
@@ -879,7 +969,7 @@ class _ManagerPageState extends State<ManagerPage> {
                 };
                 if (type == 'categories') {
                   values['key'] = key.text.trim();
-                  values['price_adjustment'] = price.text;
+                  values['price_adjustment'] = '0';
                 } else {
                   values['price'] = price.text;
                   if (type == 'services') {
