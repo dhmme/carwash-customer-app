@@ -37,7 +37,7 @@ class _AuthPageState extends State<AuthPage> {
   String? _error;
   static const supportWhatsApp = String.fromEnvironment(
     'SUPPORT_WHATSAPP',
-    defaultValue: '',
+    defaultValue: '966503244668',
   );
 
   Future<void> _openSupport() async {
