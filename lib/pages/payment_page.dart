@@ -34,12 +34,58 @@ class PaymentPage extends StatefulWidget {
 }
 
 class _PaymentPageState extends State<PaymentPage> {
+  final promoController = TextEditingController();
   String method = 'cash';
   bool sending = false;
   bool onlineConfigLoading = true;
   bool onlineEnabled = false;
   List<Map<String, dynamic>> paymentMethods = [];
   String? error;
+  String appliedPromo = '';
+  double discount = 0;
+  bool checkingPromo = false;
+
+  double get finalTotal => (widget.total - discount).clamp(0, double.infinity);
+
+  @override
+  void dispose() {
+    promoController.dispose();
+    super.dispose();
+  }
+
+  Future<void> applyPromo() async {
+    final code = promoController.text.trim().toUpperCase();
+    if (code.isEmpty) return;
+    setState(() {
+      checkingPromo = true;
+      error = null;
+    });
+    try {
+      final response = await http.post(
+        Uri.parse('${widget.baseUrl}/api/promo-codes/validate/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'code': code, 'subtotal': widget.total}),
+      );
+      final data =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      if (response.statusCode != 200) {
+        setState(() {
+          appliedPromo = '';
+          discount = 0;
+          error = data['detail']?.toString() ?? 'كود الخصم غير صحيح.';
+        });
+        return;
+      }
+      setState(() {
+        appliedPromo = data['code'].toString();
+        discount = double.tryParse(data['discount_amount'].toString()) ?? 0;
+      });
+    } catch (_) {
+      setState(() => error = 'تعذر التحقق من كود الخصم.');
+    } finally {
+      if (mounted) setState(() => checkingPromo = false);
+    }
+  }
 
   @override
   void initState() {
@@ -109,6 +155,7 @@ class _PaymentPageState extends State<PaymentPage> {
           'date': widget.date,
           'time_slot': widget.time,
           'payment_method': method,
+          if (appliedPromo.isNotEmpty) 'promo_code': appliedPromo,
           'add_ons': widget.addOns
               .map((item) => {'id': item['id'], 'quantity': item['quantity']})
               .toList(),
@@ -223,10 +270,51 @@ class _PaymentPageState extends State<PaymentPage> {
                   row('الموعد', '${widget.date} • ${widget.time}'),
                   const Divider(),
                   row('الإجمالي', '${widget.total.toStringAsFixed(2)} ر.س'),
+                  if (discount > 0) ...[
+                    row('الخصم', '-${discount.toStringAsFixed(2)} ر.س'),
+                    row(
+                      'الإجمالي بعد الخصم',
+                      '${finalTotal.toStringAsFixed(2)} ر.س',
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: promoController,
+            textCapitalization: TextCapitalization.characters,
+            onChanged: (_) {
+              if (appliedPromo.isNotEmpty)
+                setState(() {
+                  appliedPromo = '';
+                  discount = 0;
+                });
+            },
+            decoration: InputDecoration(
+              labelText: 'كود الخصم (اختياري)',
+              prefixIcon: const Icon(Icons.discount_outlined),
+              suffixIcon: TextButton(
+                onPressed: checkingPromo ? null : applyPromo,
+                child: checkingPromo
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('تطبيق'),
+              ),
+            ),
+          ),
+          if (appliedPromo.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'تم تطبيق كود $appliedPromo',
+                style: const TextStyle(color: Colors.greenAccent),
+              ),
+            ),
           const SizedBox(height: 20),
           const Text(
             'طريقة الدفع',
