@@ -33,6 +33,33 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <div id="code-care-loader" role="status" aria-live="polite">
+    <div class="code-care-card">
+      <div class="code-care-spinner" aria-hidden="true"></div>
+      <strong>جاري تشغيل Code Care</strong>
+      <span id="code-care-loading-note">لحظات من فضلك...</span>
+      <button id="code-care-recover" type="button" hidden>إعادة تحميل التطبيق</button>
+    </div>
+  </div>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #071f2a; }
+    #code-care-loader {
+      position: fixed; inset: 0; z-index: 999999; display: grid; place-items: center;
+      direction: rtl; font-family: Arial, sans-serif; color: #eaf8ff;
+      background: linear-gradient(145deg, #071f2a, #0b3444);
+    }
+    .code-care-card { display: grid; justify-items: center; gap: 14px; padding: 28px; text-align: center; }
+    .code-care-spinner {
+      width: 42px; height: 42px; border: 4px solid rgba(255,255,255,.2);
+      border-top-color: #31b9e9; border-radius: 50%; animation: code-care-spin .8s linear infinite;
+    }
+    #code-care-loading-note { color: #b9d4df; font-size: 14px; }
+    #code-care-recover {
+      margin-top: 6px; padding: 11px 20px; border: 0; border-radius: 12px;
+      color: #06202a; background: #55c9ee; font-weight: 700; cursor: pointer;
+    }
+    @keyframes code-care-spin { to { transform: rotate(360deg); } }
+  </style>
   <script>
     // Flutter's generated service worker can keep an older release active on
     // mobile browsers. Code Care is an online-only app, so remove legacy
@@ -42,10 +69,58 @@
       if (flutterStarted) return;
       flutterStarted = true;
       const script = document.createElement('script');
-      script.src = 'flutter_bootstrap.js';
+      script.src = 'flutter_bootstrap.js?v=20261005-1';
       script.async = true;
+      script.onerror = showRecovery;
       document.body.appendChild(script);
     };
+
+    const showRecovery = () => {
+      const note = document.getElementById('code-care-loading-note');
+      const button = document.getElementById('code-care-recover');
+      if (note) note.textContent = 'تعذر تحميل التطبيق. أعد المحاولة لتحديث النسخة.';
+      if (button) button.hidden = false;
+    };
+
+    const hideLoaderWhenReady = () => {
+      const removeLoader = () => {
+        if (!document.querySelector('flutter-view, flt-glass-pane')) return false;
+        document.getElementById('code-care-loader')?.remove();
+        return true;
+      };
+      if (removeLoader()) return;
+      const observer = new MutationObserver(() => {
+        if (removeLoader()) observer.disconnect();
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    };
+
+    const recoverApp = async () => {
+      const button = document.getElementById('code-care-recover');
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'جاري التحديث...';
+      }
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+        }
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+        localStorage.removeItem('flutter-app-manifest');
+      } finally {
+        const url = new URL(window.location.href);
+        url.searchParams.set('refresh', Date.now().toString());
+        window.location.replace(url.toString());
+      }
+    };
+
+    document.getElementById('code-care-recover')?.addEventListener('click', recoverApp);
+    hideLoaderWhenReady();
+    setTimeout(showRecovery, 12000);
 
     const clearLegacyFlutterCache = async () => {
       const wasControlled = Boolean(navigator.serviceWorker?.controller);
@@ -70,6 +145,10 @@
           ),
         );
       }
+
+      // This key belongs only to Flutter's old offline manifest. Customer
+      // authentication and saved application data are intentionally retained.
+      localStorage.removeItem('flutter-app-manifest');
 
       await Promise.all(tasks);
 
