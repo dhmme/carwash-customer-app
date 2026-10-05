@@ -83,16 +83,14 @@
     };
 
     const hideLoaderWhenReady = () => {
-      const removeLoader = () => {
-        if (!document.querySelector('flutter-view, flt-glass-pane')) return false;
-        document.getElementById('code-care-loader')?.remove();
-        return true;
-      };
-      if (removeLoader()) return;
-      const observer = new MutationObserver(() => {
-        if (removeLoader()) observer.disconnect();
-      });
-      observer.observe(document.documentElement, { childList: true, subtree: true });
+      // Creating <flutter-view> does not mean Flutter has painted the screen.
+      // Wait for Flutter's first-frame signal so slow Safari devices never see
+      // the page background between the loader and the login screen.
+      window.addEventListener(
+        'flutter-first-frame',
+        () => document.getElementById('code-care-loader')?.remove(),
+        { once: true },
+      );
     };
 
     const recoverApp = async () => {
