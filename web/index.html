@@ -66,6 +66,7 @@
     // registrations and caches before booting the current release.
     const releaseVersion = '__CODE_CARE_RELEASE__';
     const recoveryAttemptKey = 'code-care-recovery-attempt';
+    const browserStateResetKey = 'code-care-browser-state-reset';
     let flutterStarted = false;
     let recoveryStarted = false;
     const loadFlutter = () => {
@@ -123,7 +124,12 @@
           const keys = await caches.keys();
           await Promise.all(keys.map((key) => caches.delete(key)));
         }
-        localStorage.removeItem('flutter-app-manifest');
+        // A damaged flutter_secure_storage value can let Flutter draw its
+        // first frame and then leave only the background visible. Recovery is
+        // intentionally a clean sign-out: customer data remains on the server
+        // and the browser can start from the login screen again.
+        localStorage.clear();
+        sessionStorage.setItem(browserStateResetKey, releaseVersion);
       } finally {
         const url = new URL(window.location.href);
         url.searchParams.set('release', releaseVersion);
@@ -132,10 +138,26 @@
       }
     };
 
+    // Finish a recovery that was started by an older release. This is needed
+    // for browsers that already reached a blank Flutter first frame before the
+    // stronger recovery logic was deployed.
+    const recoveryUrl = new URL(window.location.href);
+    if (
+      recoveryUrl.searchParams.has('refresh') &&
+      sessionStorage.getItem(browserStateResetKey) !== releaseVersion
+    ) {
+      localStorage.clear();
+      sessionStorage.setItem(browserStateResetKey, releaseVersion);
+    }
+
     document.getElementById('code-care-recover')?.addEventListener('click', () => recoverApp(false));
     hideLoaderWhenReady();
     window.addEventListener('flutter-first-frame', () => {
       sessionStorage.removeItem(recoveryAttemptKey);
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('release');
+      cleanUrl.searchParams.delete('refresh');
+      window.history.replaceState(null, '', cleanUrl.toString());
     }, { once: true });
     setTimeout(() => recoverApp(true), 12000);
 
