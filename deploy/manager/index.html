@@ -64,10 +64,11 @@
     // Flutter's generated service worker can keep an older release active on
     // mobile browsers. Code Care is an online-only app, so remove legacy
     // registrations and caches before booting the current release.
-    const releaseVersion = '03e05d8a35a12b9c5ff6644494f4af686c3dba8f';
+    const releaseVersion = 'e0646676ceaae9581f7d6f5227facdb827bab3d2';
     const recoveryAttemptKey = 'code-care-recovery-attempt';
     const browserStateResetKey = 'code-care-browser-state-reset';
     let flutterStarted = false;
+    let flutterReady = false;
     let recoveryStarted = false;
     const loadFlutter = () => {
       if (flutterStarted) return;
@@ -153,13 +154,16 @@
     document.getElementById('code-care-recover')?.addEventListener('click', () => recoverApp(false));
     hideLoaderWhenReady();
     window.addEventListener('flutter-first-frame', () => {
+      flutterReady = true;
       sessionStorage.removeItem(recoveryAttemptKey);
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete('release');
       cleanUrl.searchParams.delete('refresh');
       window.history.replaceState(null, '', cleanUrl.toString());
     }, { once: true });
-    setTimeout(() => recoverApp(true), 12000);
+    setTimeout(() => {
+      if (!flutterReady) recoverApp(true);
+    }, 12000);
 
     const clearLegacyFlutterCache = async () => {
       const wasControlled = Boolean(navigator.serviceWorker?.controller);
