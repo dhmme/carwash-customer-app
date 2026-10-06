@@ -64,14 +64,17 @@
     // Flutter's generated service worker can keep an older release active on
     // mobile browsers. Code Care is an online-only app, so remove legacy
     // registrations and caches before booting the current release.
+    const releaseVersion = '9875d3e2ef77812b70d1dd4c77be2423b75cad82';
+    const recoveryAttemptKey = 'code-care-recovery-attempt';
     let flutterStarted = false;
+    let recoveryStarted = false;
     const loadFlutter = () => {
       if (flutterStarted) return;
       flutterStarted = true;
       const script = document.createElement('script');
-      script.src = 'flutter_bootstrap.js?v=20261005-1';
+      script.src = `flutter_bootstrap.js?v=${encodeURIComponent(releaseVersion)}`;
       script.async = true;
-      script.onerror = showRecovery;
+      script.onerror = () => recoverApp(true);
       document.body.appendChild(script);
     };
 
@@ -83,17 +86,29 @@
     };
 
     const hideLoaderWhenReady = () => {
-      // Creating <flutter-view> does not mean Flutter has painted the screen.
-      // Wait for Flutter's first-frame signal so slow Safari devices never see
-      // the page background between the loader and the login screen.
-      window.addEventListener(
-        'flutter-first-frame',
-        () => document.getElementById('code-care-loader')?.remove(),
-        { once: true },
-      );
+      const removeLoader = () => {
+        if (!document.querySelector('flutter-view, flt-glass-pane')) return false;
+        document.getElementById('code-care-loader')?.remove();
+        return true;
+      };
+      if (removeLoader()) return;
+      const observer = new MutationObserver(() => {
+        if (removeLoader()) observer.disconnect();
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
     };
 
-    const recoverApp = async () => {
+    const recoverApp = async (automatic = false) => {
+      if (recoveryStarted) return;
+
+      const attempts = Number(sessionStorage.getItem(recoveryAttemptKey) || '0');
+      if (automatic && attempts >= 1) {
+        showRecovery();
+        return;
+      }
+
+      recoveryStarted = true;
+      sessionStorage.setItem(recoveryAttemptKey, String(attempts + 1));
       const button = document.getElementById('code-care-recover');
       if (button) {
         button.disabled = true;
@@ -111,14 +126,18 @@
         localStorage.removeItem('flutter-app-manifest');
       } finally {
         const url = new URL(window.location.href);
+        url.searchParams.set('release', releaseVersion);
         url.searchParams.set('refresh', Date.now().toString());
         window.location.replace(url.toString());
       }
     };
 
-    document.getElementById('code-care-recover')?.addEventListener('click', recoverApp);
+    document.getElementById('code-care-recover')?.addEventListener('click', () => recoverApp(false));
     hideLoaderWhenReady();
-    setTimeout(showRecovery, 12000);
+    window.addEventListener('flutter-first-frame', () => {
+      sessionStorage.removeItem(recoveryAttemptKey);
+    }, { once: true });
+    setTimeout(() => recoverApp(true), 12000);
 
     const clearLegacyFlutterCache = async () => {
       const wasControlled = Boolean(navigator.serviceWorker?.controller);
@@ -150,11 +169,13 @@
 
       await Promise.all(tasks);
 
-      // Unregistering does not release the current Safari tab immediately.
-      // Reload once so this page is fetched directly from Vercel.
-      if (wasControlled && sessionStorage.getItem('code-care-cache-reset') !== '1') {
-        sessionStorage.setItem('code-care-cache-reset', '1');
-        window.location.reload();
+      // Unregistering does not release the current tab. Always leave a page
+      // still controlled by a legacy worker before loading Flutter assets.
+      if (wasControlled) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('release', releaseVersion);
+        url.searchParams.set('refresh', Date.now().toString());
+        window.location.replace(url.toString());
         return true;
       }
 
@@ -168,10 +189,26 @@
       new Promise((resolve) => setTimeout(() => resolve(false), 1500)),
     ])
       .then((reloading) => {
-        if (!reloading) loadFlutter();
+        if (reloading) return;
+        if (navigator.serviceWorker?.controller) {
+          recoverApp(true);
+          return;
+        }
+        loadFlutter();
       })
-      .catch(loadFlutter);
-    setTimeout(loadFlutter, 2500);
+      .catch(() => {
+        if (navigator.serviceWorker?.controller) {
+          recoverApp(true);
+          return;
+        }
+        loadFlutter();
+      });
+    // Only use the timeout fallback when this page is not controlled by an
+    // old worker. Starting Flutter while that worker is still active is what
+    // caused mixed-release blank screens.
+    if (!navigator.serviceWorker?.controller) {
+      setTimeout(loadFlutter, 2500);
+    }
   </script>
 </body>
 </html>
