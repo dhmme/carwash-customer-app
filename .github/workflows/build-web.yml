@@ -38,11 +38,15 @@ jobs:
       - name: Build customer web app
         run: |
           flutter build web --release --pwa-strategy=none -t lib/main.dart
+          sed -i "s/__CODE_CARE_RELEASE__/${GITHUB_SHA}/g" build/web/index.html
+          sed -i "s#\"mainJsPath\":\"main.dart.js\"#\"mainJsPath\":\"main.dart.js?v=${GITHUB_SHA}\"#g" build/web/flutter_bootstrap.js
           cp vercel.json build/web/vercel.json
 
       - name: Build worker web app
         run: |
           flutter build web --release --pwa-strategy=none -t lib/main_worker.dart
+          sed -i "s/__CODE_CARE_RELEASE__/${GITHUB_SHA}/g" build/web/index.html
+          sed -i "s#\"mainJsPath\":\"main.dart.js\"#\"mainJsPath\":\"main.dart.js?v=${GITHUB_SHA}\"#g" build/web/flutter_bootstrap.js
           rm -rf deploy/worker
           mkdir -p deploy/worker
           cp -R build/web/. deploy/worker/
@@ -51,6 +55,8 @@ jobs:
       - name: Build manager web app
         run: |
           flutter build web --release --pwa-strategy=none -t lib/main_manager.dart
+          sed -i "s/__CODE_CARE_RELEASE__/${GITHUB_SHA}/g" build/web/index.html
+          sed -i "s#\"mainJsPath\":\"main.dart.js\"#\"mainJsPath\":\"main.dart.js?v=${GITHUB_SHA}\"#g" build/web/flutter_bootstrap.js
           rm -rf deploy/manager
           mkdir -p deploy/manager
           cp -R build/web/. deploy/manager/
@@ -59,6 +65,8 @@ jobs:
       - name: Restore customer web app
         run: |
           flutter build web --release --pwa-strategy=none -t lib/main.dart
+          sed -i "s/__CODE_CARE_RELEASE__/${GITHUB_SHA}/g" build/web/index.html
+          sed -i "s#\"mainJsPath\":\"main.dart.js\"#\"mainJsPath\":\"main.dart.js?v=${GITHUB_SHA}\"#g" build/web/flutter_bootstrap.js
           cp vercel.json build/web/vercel.json
 
       - name: Commit generated web files
