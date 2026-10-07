@@ -130,6 +130,51 @@ class _LocationsPageState extends State<LocationsPage> {
     }
   }
 
+  Future<void> remove(Map<String, dynamic> location) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف الموقع'),
+        content: Text('هل تريد حذف موقع ${location['name']}؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('تراجع'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    var response = await http.delete(
+      Uri.parse('${widget.baseUrl}/api/locations/${location['id']}/'),
+      headers: Session.authHeaders,
+    );
+    if (response.statusCode == 401 && await Session.refresh()) {
+      response = await http.delete(
+        Uri.parse('${widget.baseUrl}/api/locations/${location['id']}/'),
+        headers: Session.authHeaders,
+      );
+    }
+    if (response.statusCode == 401) {
+      await Session.handleUnauthorized();
+      return;
+    }
+    if (!mounted) return;
+    if (response.statusCode == 204) {
+      setState(() => items.removeWhere((item) => item['id'] == location['id']));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('تم حذف الموقع.')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر حذف الموقع. حاول مرة أخرى.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Directionality(
     textDirection: TextDirection.rtl,
@@ -158,6 +203,14 @@ class _LocationsPageState extends State<LocationsPage> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(x['address_text'] ?? ''),
+                    trailing: IconButton(
+                      tooltip: 'حذف الموقع',
+                      onPressed: () => remove(x),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                      ),
+                    ),
                   ),
                 );
               },

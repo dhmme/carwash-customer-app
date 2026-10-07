@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../session.dart';
 
@@ -190,6 +191,122 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
   }
 
+  Future<void> _changeLocation(Map<String, dynamic> booking) async {
+    try {
+      var response = await http.get(
+        Uri.parse('${widget.baseUrl}/api/locations/'),
+        headers: Session.authHeaders,
+      );
+      if (response.statusCode == 401 && await Session.refresh()) {
+        response = await http.get(
+          Uri.parse('${widget.baseUrl}/api/locations/'),
+          headers: Session.authHeaders,
+        );
+      }
+      if (response.statusCode != 200) throw Exception();
+      final locations = (jsonDecode(utf8.decode(response.bodyBytes)) as List)
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+      if (!mounted) return;
+      final selected = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('تغيير موقع الحجز'),
+          content: SizedBox(
+            width: 420,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.my_location),
+                  title: const Text('استخدام موقعي الحالي'),
+                  onTap: () => Navigator.pop(dialogContext, {
+                    'current': true,
+                    'name': 'الموقع الحالي',
+                  }),
+                ),
+                const Divider(height: 1),
+                ...locations.map(
+                  (location) => ListTile(
+                    leading: const Icon(Icons.location_on_outlined),
+                    title: Text(location['name']?.toString() ?? ''),
+                    onTap: () => Navigator.pop(dialogContext, location),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إلغاء'),
+            ),
+          ],
+        ),
+      );
+      if (selected == null) return;
+      final payload = <String, dynamic>{};
+      if (selected['current'] == true) {
+        var permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('اسمح بالوصول للموقع أولًا.')),
+            );
+          }
+          return;
+        }
+        final position = await Geolocator.getCurrentPosition();
+        payload.addAll({
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        });
+      } else {
+        payload['location'] = selected['id'];
+      }
+      response = await http.patch(
+        Uri.parse('${widget.baseUrl}/api/bookings/${booking['id']}/location/'),
+        headers: Session.authHeaders,
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode == 401 && await Session.refresh()) {
+        response = await http.patch(
+          Uri.parse(
+            '${widget.baseUrl}/api/bookings/${booking['id']}/location/',
+          ),
+          headers: Session.authHeaders,
+          body: jsonEncode(payload),
+        );
+      }
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('تم تغيير الموقع إلى ${selected['name']}')),
+          );
+        }
+        return;
+      }
+      var message = 'تعذر تغيير موقع الحجز.';
+      try {
+        message = jsonDecode(response.body)['detail']?.toString() ?? message;
+      } catch (_) {}
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر تحميل المواقع. حاول مرة أخرى.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -244,7 +361,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                           subtitle: Text(
                             '${booking['date']} • ${booking['time_slot']}\n'
                             '${_status(status, paymentStatus)}'
-                            '${paymentLabel.isEmpty ? '' : ' • $paymentLabel'}',
+                            '${paymentLabel.isEmpty ? '' : ' • $paymentLabel'}\n'
+                            'الموقع: ${booking['address_text'] ?? 'الموقع المحدد'}',
                           ),
                           isThreeLine: true,
                           trailing: SizedBox(
@@ -294,24 +412,34 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                           ),
                         ),
                         if (canCancel)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Padding(
-                              padding: const EdgeInsetsDirectional.only(
-                                start: 12,
-                                bottom: 8,
-                              ),
-                              child: TextButton.icon(
-                                onPressed: () => _cancelBooking(booking),
-                                icon: const Icon(
-                                  Icons.cancel_outlined,
-                                  color: Colors.redAccent,
+                          Padding(
+                            padding: const EdgeInsetsDirectional.only(
+                              start: 12,
+                              end: 12,
+                              bottom: 8,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                TextButton.icon(
+                                  onPressed: () => _changeLocation(booking),
+                                  icon: const Icon(
+                                    Icons.edit_location_alt_outlined,
+                                  ),
+                                  label: const Text('تغيير الموقع'),
                                 ),
-                                label: const Text(
-                                  'إلغاء الحجز',
-                                  style: TextStyle(color: Colors.redAccent),
+                                TextButton.icon(
+                                  onPressed: () => _cancelBooking(booking),
+                                  icon: const Icon(
+                                    Icons.cancel_outlined,
+                                    color: Colors.redAccent,
+                                  ),
+                                  label: const Text(
+                                    'إلغاء الحجز',
+                                    style: TextStyle(color: Colors.redAccent),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ),
                       ],
