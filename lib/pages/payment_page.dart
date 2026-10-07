@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -40,12 +41,18 @@ class _PaymentPageState extends State<PaymentPage> {
   bool onlineConfigLoading = true;
   bool onlineEnabled = false;
   List<Map<String, dynamic>> paymentMethods = [];
+  List<Map<String, dynamic>> customerPackages = [];
+  int? selectedPackageId;
   String? error;
   String appliedPromo = '';
   double discount = 0;
   bool checkingPromo = false;
 
-  double get finalTotal => (widget.total - discount).clamp(0, double.infinity);
+  double get servicePrice =>
+      double.tryParse(widget.service?['price']?.toString() ?? '0') ?? 0;
+  double get finalTotal =>
+      (widget.total - discount - (selectedPackageId == null ? 0 : servicePrice))
+          .clamp(0, double.infinity);
 
   @override
   void dispose() {
@@ -95,9 +102,14 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Future<void> _loadPaymentConfig() async {
     try {
-      final response = await http.get(
-        Uri.parse('${widget.baseUrl}/api/payment-config/'),
-      );
+      final responses = await Future.wait([
+        http.get(Uri.parse('${widget.baseUrl}/api/payment-config/')),
+        http.get(
+          Uri.parse('${widget.baseUrl}/api/customer-packages/'),
+          headers: Session.authHeaders,
+        ),
+      ]);
+      final response = responses[0];
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         onlineEnabled = data['online_enabled'] == true;
@@ -115,6 +127,17 @@ class _PaymentPageState extends State<PaymentPage> {
             !paymentMethods.any((item) => item['code'] == method)) {
           method = paymentMethods.first['code']?.toString() ?? 'cash';
         }
+      }
+      if (responses[1].statusCode == 200) {
+        customerPackages = (jsonDecode(responses[1].body) as List)
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .where(
+              (item) =>
+                  item['status'] == 'active' &&
+                  (item['remaining_washes'] as num? ?? 0) > 0 &&
+                  item['included_service'] == widget.service?['id'],
+            )
+            .toList();
       }
     } catch (_) {
       onlineEnabled = false;
@@ -156,6 +179,7 @@ class _PaymentPageState extends State<PaymentPage> {
           'time_slot': widget.time,
           'payment_method': method,
           if (appliedPromo.isNotEmpty) 'promo_code': appliedPromo,
+          if (selectedPackageId != null) 'customer_package': selectedPackageId,
           'add_ons': widget.addOns
               .map((item) => {'id': item['id'], 'quantity': item['quantity']})
               .toList(),
@@ -221,7 +245,10 @@ class _PaymentPageState extends State<PaymentPage> {
       final body = jsonDecode(response.body);
       if (body is Map<String, dynamic>) {
         final value =
-            body['time_slot'] ?? body['payment_method'] ?? body['detail'];
+            body['time_slot'] ??
+            body['customer_package'] ??
+            body['payment_method'] ??
+            body['detail'];
         if (value is List && value.isNotEmpty) return value.first.toString();
         if (value != null) return value.toString();
       }
@@ -270,7 +297,12 @@ class _PaymentPageState extends State<PaymentPage> {
                   row('الموعد', '${widget.date} • ${widget.time}'),
                   const Divider(),
                   row('الإجمالي', '${widget.total.toStringAsFixed(2)} ر.س'),
-                  if (discount > 0) ...[
+                  if (selectedPackageId != null)
+                    row(
+                      'الغسيل من الباقة',
+                      '-${servicePrice.toStringAsFixed(2)} ر.س',
+                    ),
+                  if (discount > 0 || selectedPackageId != null) ...[
                     row('الخصم', '-${discount.toStringAsFixed(2)} ر.س'),
                     row(
                       'الإجمالي بعد الخصم',
@@ -282,6 +314,41 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
           ),
           const SizedBox(height: 16),
+          if (customerPackages.isNotEmpty) ...[
+            const Text(
+              'استخدام باقة الغسيل',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            ...customerPackages.map(
+              (item) => RadioListTile<int?>(
+                value: item['id'] as int,
+                groupValue: selectedPackageId,
+                onChanged: (value) => setState(() {
+                  selectedPackageId = selectedPackageId == value ? null : value;
+                  if (selectedPackageId != null && method == 'online') {
+                    final nonGateway = paymentMethods.where(
+                      (item) => item['requires_gateway'] != true,
+                    );
+                    if (nonGateway.isNotEmpty) {
+                      method = nonGateway.first['code'].toString();
+                    }
+                  }
+                  appliedPromo = '';
+                  discount = 0;
+                  promoController.clear();
+                }),
+                title: Text(item['plan_name']?.toString() ?? 'باقة غسيل'),
+                subtitle: Text('متبقي ${item['remaining_washes']} غسلات'),
+                secondary: const Icon(Icons.local_car_wash),
+              ),
+            ),
+            if (selectedPackageId != null)
+              TextButton(
+                onPressed: () => setState(() => selectedPackageId = null),
+                child: const Text('عدم استخدام الباقة'),
+              ),
+            const SizedBox(height: 12),
+          ],
           TextField(
             controller: promoController,
             textCapitalization: TextCapitalization.characters,
@@ -326,22 +393,51 @@ class _PaymentPageState extends State<PaymentPage> {
               child: Center(child: CircularProgressIndicator()),
             )
           else
-            ...paymentMethods.map(
-              (item) => RadioListTile<String>(
-                value: item['code']?.toString() ?? '',
-                groupValue: method,
-                onChanged: (value) => setState(() => method = value!),
-                title: Text(item['name']?.toString() ?? ''),
-                subtitle: (item['instructions']?.toString() ?? '').isEmpty
-                    ? null
-                    : Text(item['instructions'].toString()),
-                secondary: Icon(
-                  item['requires_gateway'] == true
-                      ? Icons.credit_card
-                      : Icons.payments_outlined,
+            ...paymentMethods
+                .where(
+                  (item) =>
+                      selectedPackageId == null ||
+                      item['requires_gateway'] != true,
+                )
+                .map(
+                  (item) => RadioListTile<String>(
+                    value: item['code']?.toString() ?? '',
+                    groupValue: method,
+                    onChanged: (value) => setState(() => method = value!),
+                    title: Text(item['name']?.toString() ?? ''),
+                    subtitle: (item['instructions']?.toString() ?? '').isEmpty
+                        ? null
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: Text(item['instructions'].toString()),
+                              ),
+                              TextButton.icon(
+                                icon: const Icon(Icons.copy, size: 18),
+                                label: const Text('نسخ'),
+                                onPressed: () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(
+                                      text: item['instructions'].toString(),
+                                    ),
+                                  );
+                                  if (mounted)
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('تم نسخ بيانات التحويل'),
+                                      ),
+                                    );
+                                },
+                              ),
+                            ],
+                          ),
+                    secondary: Icon(
+                      item['requires_gateway'] == true
+                          ? Icons.credit_card
+                          : Icons.payments_outlined,
+                    ),
+                  ),
                 ),
-              ),
-            ),
           if (method == 'online')
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),

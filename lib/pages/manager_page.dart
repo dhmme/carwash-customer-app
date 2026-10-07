@@ -34,6 +34,8 @@ class _ManagerPageState extends State<ManagerPage> {
       customers = [];
   List<dynamic> paymentMethods = [];
   List<dynamic> promoCodes = [];
+  List<dynamic> packages = [];
+  List<dynamic> packagePurchases = [];
   DateTime ledgerFrom = DateTime.now(), ledgerTo = DateTime.now();
 
   @override
@@ -95,6 +97,8 @@ class _ManagerPageState extends State<ManagerPage> {
         api('customers/'),
         api('payment-methods/'),
         api('promo-codes/'),
+        api('packages/'),
+        api('package-purchases/'),
         api('ledger/?from=${_iso(ledgerFrom)}&to=${_iso(ledgerTo)}'),
       ]);
       if (mounted)
@@ -111,7 +115,9 @@ class _ManagerPageState extends State<ManagerPage> {
           customers = data[9];
           paymentMethods = data[10];
           promoCodes = data[11];
-          ledger = Map<String, dynamic>.from(data[12]);
+          packages = data[12];
+          packagePurchases = data[13];
+          ledger = Map<String, dynamic>.from(data[14]);
         });
     } catch (_) {
       if (mounted) setState(() => error = 'تعذر تحميل بيانات الإدارة');
@@ -394,11 +400,211 @@ class _ManagerPageState extends State<ManagerPage> {
         Icons.directions_car,
       ),
       _catalogSection('الخدمات الإضافية', 'add-ons', addOns, Icons.add_circle),
+      _packagesSection(),
+      _packagePurchasesSection(),
       _paymentMethodsSection(),
       _promoCodesSection(),
       _timeSlotsSection(),
     ],
   );
+
+  Widget _packagesSection() => Card(
+    child: ExpansionTile(
+      leading: const Icon(Icons.confirmation_number_outlined),
+      title: const Text('باقات الغسيل'),
+      subtitle: const Text('الغسيل المشمول والسعر والعدد والصلاحية'),
+      trailing: IconButton(
+        tooltip: 'إضافة باقة',
+        onPressed: () => _packageDialog(),
+        icon: const Icon(Icons.add),
+      ),
+      children: packages.map((raw) {
+        final item = Map<String, dynamic>.from(raw);
+        return ListTile(
+          leading: Switch(
+            value: item['is_active'] == true,
+            onChanged: (_) => toggleCatalog('packages', item),
+          ),
+          title: Text(item['name']?.toString() ?? ''),
+          subtitle: Text(
+            '${item['washes_count']} غسلات • ${item['price']} ر.س • ${item['validity_days']} يومًا\nتشمل: ${item['included_service_name'] ?? '-'} بدون الإضافات',
+          ),
+          isThreeLine: true,
+          trailing: IconButton(
+            tooltip: 'تعديل الباقة',
+            onPressed: () => _packageDialog(item),
+            icon: const Icon(Icons.edit),
+          ),
+        );
+      }).toList(),
+    ),
+  );
+
+  Future<void> _packageDialog([Map<String, dynamic>? item]) async {
+    final name = TextEditingController(text: item?['name']?.toString() ?? '');
+    final washes = TextEditingController(
+      text: item?['washes_count']?.toString() ?? '',
+    );
+    final price = TextEditingController(text: item?['price']?.toString() ?? '');
+    final validity = TextEditingController(
+      text: item?['validity_days']?.toString() ?? '60',
+    );
+    final carServices = services
+        .where((service) => service['group_key'] == 'car_wash')
+        .toList();
+    int? selectedService = item?['included_service'] as int?;
+    selectedService ??= carServices.isEmpty ? null : carServices.first['id'];
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setLocal) => AlertDialog(
+          title: Text(item == null ? 'إضافة باقة' : 'تعديل الباقة'),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: name,
+                    decoration: const InputDecoration(labelText: 'اسم الباقة'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: washes,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'عدد الغسلات'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: price,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(labelText: 'سعر الباقة'),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    value: selectedService,
+                    decoration: const InputDecoration(
+                      labelText: 'خدمة الغسيل المشمولة',
+                    ),
+                    items: carServices
+                        .map(
+                          (service) => DropdownMenuItem<int>(
+                            value: service['id'],
+                            child: Text(service['name']?.toString() ?? ''),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) =>
+                        setLocal(() => selectedService = value),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: validity,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'مدة الصلاحية بالأيام',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('الخدمات الإضافية لا تدخل ضمن رصيد الباقة.'),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: selectedService == null
+                  ? null
+                  : () async {
+                      if (name.text.trim().isEmpty ||
+                          (int.tryParse(washes.text) ?? 0) < 1 ||
+                          (double.tryParse(price.text) ?? -1) < 0 ||
+                          (int.tryParse(validity.text) ?? 0) < 1) {
+                        return;
+                      }
+                      Navigator.pop(dialogContext);
+                      await saveCatalog('packages', {
+                        'name': name.text.trim(),
+                        'washes_count': int.parse(washes.text),
+                        'price': price.text,
+                        'included_service': selectedService,
+                        'validity_days': int.parse(validity.text),
+                        'is_active': item?['is_active'] ?? true,
+                        'ordering': item?['ordering'] ?? 0,
+                      }, item?['id']);
+                    },
+              child: const Text('حفظ'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _packagePurchasesSection() => Card(
+    child: ExpansionTile(
+      leading: const Icon(Icons.inventory_2_outlined),
+      title: const Text('طلبات شراء الباقات'),
+      subtitle: Text(
+        '${packagePurchases.where((item) => item['status'] == 'pending').length} بانتظار الاعتماد',
+      ),
+      children: packagePurchases.map((raw) {
+        final item = Map<String, dynamic>.from(raw);
+        final pending = item['status'] == 'pending';
+        final statusText = switch (item['status']) {
+          'active' => 'نشطة',
+          'rejected' => 'مرفوضة',
+          'expired' => 'منتهية',
+          _ => 'بانتظار الاعتماد',
+        };
+        return ListTile(
+          leading: Icon(
+            pending ? Icons.hourglass_top : Icons.verified_outlined,
+          ),
+          title: Text('${item['customer_name']} — ${item['plan_name']}'),
+          subtitle: Text(
+            '${item['customer_phone']} • ${item['payment_method']} • $statusText\nالرصيد: ${item['remaining_washes']} غسلات',
+          ),
+          isThreeLine: true,
+          trailing: pending
+              ? Wrap(
+                  spacing: 4,
+                  children: [
+                    IconButton(
+                      tooltip: 'اعتماد وتفعيل',
+                      onPressed: () =>
+                          _setPackagePurchaseStatus(item['id'], 'active'),
+                      icon: const Icon(Icons.check_circle_outline),
+                    ),
+                    IconButton(
+                      tooltip: 'رفض',
+                      onPressed: () =>
+                          _setPackagePurchaseStatus(item['id'], 'rejected'),
+                      icon: const Icon(Icons.cancel_outlined),
+                    ),
+                  ],
+                )
+              : null,
+        );
+      }).toList(),
+    ),
+  );
+
+  Future<void> _setPackagePurchaseStatus(int id, String status) async {
+    await api(
+      'package-purchases/$id/',
+      method: 'PATCH',
+      body: {'status': status},
+    );
+    await loadAll();
+  }
 
   Widget _promoCodesSection() => Card(
     child: ExpansionTile(

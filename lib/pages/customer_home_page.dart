@@ -9,6 +9,7 @@ import 'locations_page.dart';
 import 'my_bookings_page.dart';
 import 'services_page.dart';
 import 'vehicles_page.dart';
+import 'packages_page.dart';
 import '../app_theme.dart';
 import '../session.dart';
 
@@ -52,6 +53,13 @@ class CustomerHomePage extends StatelessWidget {
         Icons.directions_car,
         AppColors.navy,
         () => _open(context, VehiclesPage(baseUrl: baseUrl)),
+      ),
+      _Item(
+        'باقات الغسيل',
+        'اشترِ وتابع رصيدك',
+        Icons.confirmation_number,
+        AppColors.sky,
+        () => _open(context, PackagesPage(baseUrl: baseUrl)),
       ),
     ];
     return Directionality(
@@ -144,11 +152,11 @@ class CustomerHomePage extends StatelessWidget {
       Navigator.push(context, MaterialPageRoute(builder: (_) => page));
 
   Future<void> _openSupport() => launchUrl(
-        Uri.parse(
-          'https://wa.me/$supportWhatsApp?text=${Uri.encodeComponent('مرحبًا، أحتاج مساعدة في تطبيق Code Care')}',
-        ),
-        mode: LaunchMode.externalApplication,
-      );
+    Uri.parse(
+      'https://wa.me/$supportWhatsApp?text=${Uri.encodeComponent('مرحبًا، أحتاج مساعدة في تطبيق Code Care')}',
+    ),
+    mode: LaunchMode.externalApplication,
+  );
 
   Future<void> _emailDialog(BuildContext context) async {
     final controller = TextEditingController();
