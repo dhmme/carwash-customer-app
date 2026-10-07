@@ -42,7 +42,7 @@ class _AuthPageState extends State<AuthPage> {
   bool get _resetMode => _resetUid.isNotEmpty && _resetToken.isNotEmpty;
   static const supportWhatsApp = String.fromEnvironment(
     'SUPPORT_WHATSAPP',
-    defaultValue: '966503244668',
+    defaultValue: '966539853212',
   );
 
   Future<void> _openSupport() async {
