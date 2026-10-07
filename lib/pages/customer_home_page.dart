@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import 'locations_page.dart';
 import 'my_bookings_page.dart';
@@ -12,6 +13,8 @@ import '../app_theme.dart';
 import '../session.dart';
 
 class CustomerHomePage extends StatelessWidget {
+  static const supportWhatsApp = '966539853212';
+  static const supportPhoneDisplay = '0539853212';
   final String baseUrl;
   final VoidCallback onLogout;
   const CustomerHomePage({
@@ -121,6 +124,16 @@ class CustomerHomePage extends StatelessWidget {
                 itemBuilder: (_, i) => _Card(item: items[i]),
               ),
             ),
+            const SizedBox(height: 18),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.support_agent),
+                title: const Text('الدعم الفني'),
+                subtitle: const Text(supportPhoneDisplay),
+                trailing: const Icon(Icons.open_in_new),
+                onTap: _openSupport,
+              ),
+            ),
           ],
         ),
       ),
@@ -129,6 +142,13 @@ class CustomerHomePage extends StatelessWidget {
 
   void _open(BuildContext context, Widget page) =>
       Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+
+  Future<void> _openSupport() => launchUrl(
+        Uri.parse(
+          'https://wa.me/$supportWhatsApp?text=${Uri.encodeComponent('مرحبًا، أحتاج مساعدة في تطبيق Code Care')}',
+        ),
+        mode: LaunchMode.externalApplication,
+      );
 
   Future<void> _emailDialog(BuildContext context) async {
     final controller = TextEditingController();
