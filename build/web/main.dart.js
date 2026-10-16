@@ -49849,7 +49849,7 @@ return null},
 $S:0}
 A.aBk.prototype={
 $1(a){var s=null,r=J.aj(a),q=A.aK(J.aP(r.h(a,"plan_name")),s,s,s,s,s,s),p=J.aP(r.h(a,"status")),o=t.N
-o=A.a8(["pending","\u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u0627\u0639\u062a\u0645\u0627\u062f","active","\u0646\u0634\u0637\u0629","rejected","\u0645\u0631\u0641\u0648\u0636\u0629","expired","\u0645\u0646\u062a\u0647\u064a\u0629"],o,o).h(0,p)
+o=A.a8(["pending","\u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u0627\u0639\u062a\u0645\u0627\u062f","active","\u0646\u0634\u0637\u0629","rejected","\u0645\u0631\u0641\u0648\u0636\u0629","expired","\u0645\u0646\u062a\u0647\u064a\u0629","revoked","\u0645\u0644\u063a\u0627\u0629 \u0645\u0646 \u0627\u0644\u0625\u062f\u0627\u0631\u0629"],o,o).h(0,p)
 p=o==null?p:o
 o=A.k(r.h(a,"remaining_washes"))
 r=r.h(a,"expires_at")
