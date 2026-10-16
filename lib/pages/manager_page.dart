@@ -647,6 +647,156 @@ class _ManagerPageState extends State<ManagerPage> {
     }
   }
 
+  Future<void> _deleteCustomer(Map<String, dynamic> customer) async {
+    Map<String, dynamic> preview;
+    try {
+      preview = Map<String, dynamic>.from(
+        await api('customers/${customer['id']}/delete/'),
+      );
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(packageManagerError(e))));
+      return;
+    }
+    if (!mounted) return;
+    final phone = TextEditingController();
+    final reason = TextEditingController();
+    bool saving = false;
+    String? dialogError;
+    final blocked =
+        (preview['active_bookings'] as int) > 0 ||
+        (preview['usable_packages'] as int) > 0;
+    final deleted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setLocal) => PopScope(
+          canPop: !saving,
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              title: const Text('حذف حساب العميل'),
+              content: SizedBox(
+                width: 470,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${preview['name']} — ${preview['phone']}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'الطلبات السابقة: ${preview['booking_count']} • الفواتير: ${preview['invoice_count']} • الباقات: ${preview['package_count']}',
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'سيُحذف حساب الدخول والمواقع والمركبات المحفوظة، وتتوقف جلساته. إذا له طلبات أو فواتير أو باقات سابقة، تبقى سجلاتها محفوظة للمراجعة. لا يمكن استعادة الحساب بعد التأكيد، ولا تُعاد مبالغ تلقائيًا.',
+                      ),
+                      if (blocked) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'يوجد ${preview['active_bookings']} حجز قائم و${preview['usable_packages']} باقة سارية. عالج الحجوزات والباقات أولًا ثم ارجع لحذف الحساب.',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: phone,
+                          enabled: !saving,
+                          keyboardType: TextInputType.phone,
+                          textDirection: TextDirection.ltr,
+                          onChanged: (_) => setLocal(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'اكتب رقم جوال العميل لتأكيد الحذف',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: reason,
+                          enabled: !saving,
+                          maxLength: 500,
+                          onChanged: (_) => setLocal(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'سبب الحذف *',
+                            hintText: 'بيانات وهمية، تسجيل خاطئ...',
+                          ),
+                        ),
+                      ],
+                      if (dialogError != null)
+                        Text(
+                          dialogError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: saving
+                      ? null
+                      : () => Navigator.pop(dialogContext, false),
+                  child: const Text('تراجع'),
+                ),
+                if (!blocked)
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                    ),
+                    onPressed:
+                        saving ||
+                            phone.text.trim() != preview['phone'] ||
+                            reason.text.trim().isEmpty
+                        ? null
+                        : () async {
+                            setLocal(() {
+                              saving = true;
+                              dialogError = null;
+                            });
+                            try {
+                              await api(
+                                'customers/${customer['id']}/delete/',
+                                method: 'POST',
+                                body: {
+                                  'confirm_phone': phone.text.trim(),
+                                  'reason': reason.text.trim(),
+                                },
+                              );
+                              if (dialogContext.mounted)
+                                Navigator.pop(dialogContext, true);
+                            } catch (e) {
+                              if (dialogContext.mounted)
+                                setLocal(() {
+                                  saving = false;
+                                  dialogError = packageManagerError(e);
+                                });
+                            }
+                          },
+                    child: Text(
+                      saving ? 'جارٍ حذف الحساب...' : 'حذف الحساب نهائيًا',
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (mounted && deleted == true) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('تم حذف حساب العميل.')));
+      await loadAll();
+    }
+  }
+
   Future<void> _manageCustomerPackages(Map<String, dynamic> customer) async {
     await Navigator.push(
       context,
@@ -1491,6 +1641,19 @@ class _ManagerPageState extends State<ManagerPage> {
                   ListTile(
                     title: const Text('إجمالي المبالغ المكتملة'),
                     trailing: Text('${customer['total_spent']} ر.س'),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.person_remove_outlined,
+                      color: Colors.redAccent,
+                    ),
+                    title: const Text(
+                      'حذف حساب العميل',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
+                    subtitle: const Text('مراجعة بيانات الحساب قبل الحذف'),
+                    onTap: () => _deleteCustomer(customer),
                   ),
                 ],
               ),
