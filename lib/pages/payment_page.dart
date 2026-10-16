@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../session.dart';
+import '../widgets/legal_footer.dart';
 
 class PaymentPage extends StatefulWidget {
   final String baseUrl, date, time;
@@ -455,6 +456,9 @@ class _PaymentPageState extends State<PaymentPage> {
               ),
             ),
           const SizedBox(height: 12),
+          const Text(
+            'يمكن إلغاء الموعد قبل بدايته بساعة على الأقل. راجع شروط الباقات والإلغاء والاسترداد أدناه.',
+          ),
           FilledButton(
             onPressed: sending ? null : submit,
             child: sending
@@ -469,6 +473,7 @@ class _PaymentPageState extends State<PaymentPage> {
                         : 'تأكيد الطلب',
                   ),
           ),
+          const LegalFooter(),
         ],
       ),
     ),

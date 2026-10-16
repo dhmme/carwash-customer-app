@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../session.dart';
+import '../widgets/legal_footer.dart';
 import '../app_theme.dart';
 
 class AuthPage extends StatefulWidget {
@@ -35,6 +36,7 @@ class _AuthPageState extends State<AuthPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _register = false;
+  bool _acceptedTerms = false;
   bool _loading = false;
   String? _error;
   late final String _resetUid;
@@ -74,6 +76,12 @@ class _AuthPageState extends State<AuthPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_register && !_resetMode && !_acceptedTerms) {
+      setState(
+        () => _error = 'يرجى الموافقة على الشروط والأحكام لإنشاء الحساب.',
+      );
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -339,6 +347,19 @@ class _AuthPageState extends State<AuthPage> {
                           style: const TextStyle(color: Colors.red),
                         ),
                       ],
+                      if (_register && !_resetMode)
+                        CheckboxListTile(
+                          value: _acceptedTerms,
+                          onChanged: _loading
+                              ? null
+                              : (value) => setState(
+                                  () => _acceptedTerms = value ?? false,
+                                ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: const Text(
+                            'أوافق على الشروط والأحكام، واطلعت على سياسة الخصوصية المرتبطة أدناه.',
+                          ),
+                        ),
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
@@ -386,6 +407,7 @@ class _AuthPageState extends State<AuthPage> {
                             'تواصل معنا عبر واتساب للدعم الفني',
                           ),
                         ),
+                      if (widget.allowRegister) const LegalFooter(),
                     ],
                   ),
                 ),

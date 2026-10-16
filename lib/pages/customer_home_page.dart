@@ -12,6 +12,7 @@ import 'vehicles_page.dart';
 import 'packages_page.dart';
 import '../app_theme.dart';
 import '../session.dart';
+import '../widgets/legal_footer.dart';
 
 class CustomerHomePage extends StatelessWidget {
   static const supportWhatsApp = '966539853212';
@@ -142,6 +143,7 @@ class CustomerHomePage extends StatelessWidget {
                 onTap: _openSupport,
               ),
             ),
+            const LegalFooter(),
           ],
         ),
       ),
