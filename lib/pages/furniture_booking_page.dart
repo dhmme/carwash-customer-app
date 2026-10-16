@@ -9,6 +9,7 @@ import '../app_theme.dart';
 import '../booking_time.dart';
 import '../session.dart';
 import 'payment_page.dart';
+import 'add_location_dialog.dart';
 
 class FurnitureBookingPage extends StatefulWidget {
   final String baseUrl;
@@ -122,6 +123,15 @@ class _FurnitureBookingPageState extends State<FurnitureBookingPage> {
       });
   }
 
+  Future<void> addLocation() async {
+    final saved = await showAddLocationDialog(context, baseUrl: widget.baseUrl);
+    if (!mounted || saved == null) return;
+    setState(() {
+      locations.add(saved);
+      location = saved;
+    });
+  }
+
   Future<void> useCurrent() async {
     try {
       var p = await Geolocator.checkPermission();
@@ -231,6 +241,12 @@ class _FurnitureBookingPageState extends State<FurnitureBookingPage> {
                           )
                           .toList(),
                   onChanged: (v) => setState(() => location = v),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: addLocation,
+                  icon: const Icon(Icons.add_location_alt_outlined),
+                  label: const Text('إضافة موقع جديد'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
