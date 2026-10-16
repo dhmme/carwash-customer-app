@@ -166,6 +166,7 @@ class _PackagesPageState extends State<PackagesPage> {
         'active': 'نشطة',
         'rejected': 'مرفوضة',
         'expired': 'منتهية',
+        'revoked': 'ملغاة من الإدارة',
       }[value] ??
       value;
   @override

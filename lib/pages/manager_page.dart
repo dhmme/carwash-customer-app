@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../session.dart';
+import 'customer_packages_manager_page.dart';
 
 const baseUrl = 'https://carwash-backend-2yz2.onrender.com';
 
@@ -36,6 +37,7 @@ class _ManagerPageState extends State<ManagerPage> {
   List<dynamic> promoCodes = [];
   List<dynamic> packages = [];
   List<dynamic> packagePurchases = [];
+  String customerSearch = '';
   DateTime ledgerFrom = DateTime.now(), ledgerTo = DateTime.now();
 
   @override
@@ -558,19 +560,14 @@ class _ManagerPageState extends State<ManagerPage> {
       children: packagePurchases.map((raw) {
         final item = Map<String, dynamic>.from(raw);
         final pending = item['status'] == 'pending';
-        final statusText = switch (item['status']) {
-          'active' => 'نشطة',
-          'rejected' => 'مرفوضة',
-          'expired' => 'منتهية',
-          _ => 'بانتظار الاعتماد',
-        };
+        final statusText = managerPackageStatus(item['status']);
         return ListTile(
           leading: Icon(
             pending ? Icons.hourglass_top : Icons.verified_outlined,
           ),
           title: Text('${item['customer_name']} — ${item['plan_name']}'),
           subtitle: Text(
-            '${item['customer_phone']} • ${item['payment_method']} • $statusText\nالرصيد: ${item['remaining_washes']} غسلات',
+            '${item['customer_phone']} • ${item['payment_method'] == 'manager_grant' ? 'منح إداري' : item['payment_method']} • $statusText\nالرصيد: ${item['remaining_washes']} غسلات',
           ),
           isThreeLine: true,
           trailing: pending
@@ -591,6 +588,22 @@ class _ManagerPageState extends State<ManagerPage> {
                     ),
                   ],
                 )
+              : item['status'] == 'active' || item['status'] == 'expired'
+              ? IconButton(
+                  tooltip: 'إلغاء الباقة',
+                  icon: const Icon(Icons.cancel_outlined),
+                  onPressed: () async {
+                    if (await revokeCustomerPackage(
+                          context,
+                          item,
+                          (path, method, body) =>
+                              api(path, method: method, body: body),
+                        ) &&
+                        mounted) {
+                      await loadAll();
+                    }
+                  },
+                )
               : null,
         );
       }).toList(),
@@ -598,12 +611,55 @@ class _ManagerPageState extends State<ManagerPage> {
   );
 
   Future<void> _setPackagePurchaseStatus(int id, String status) async {
-    await api(
-      'package-purchases/$id/',
-      method: 'PATCH',
-      body: {'status': status},
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(status == 'active' ? 'اعتماد الباقة' : 'رفض طلب الباقة'),
+        content: Text(
+          status == 'active'
+              ? 'تأكد من استلام المبلغ قبل الاعتماد. ستتفعل الباقة فورًا للعميل.'
+              : 'هل تريد رفض طلب الباقة؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('تراجع'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
     );
-    await loadAll();
+    if (confirmed != true) return;
+    try {
+      await api(
+        'package-purchases/$id/',
+        method: 'PATCH',
+        body: {'status': status},
+      );
+      await loadAll();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(packageManagerError(e))));
+    }
+  }
+
+  Future<void> _manageCustomerPackages(Map<String, dynamic> customer) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CustomerPackagesManagerPage(
+          customer: customer,
+          plans: packages.map((p) => Map<String, dynamic>.from(p)).toList(),
+          request: (path, method, body) =>
+              api(path, method: method, body: body),
+        ),
+      ),
+    );
+    if (mounted) await loadAll();
   }
 
   Widget _promoCodesSection() => Card(
@@ -1372,6 +1428,15 @@ class _ManagerPageState extends State<ManagerPage> {
         ),
       ),
       const SizedBox(height: 12),
+      TextField(
+        decoration: const InputDecoration(
+          labelText: 'ابحث باسم العميل أو رقم الجوال',
+          prefixIcon: Icon(Icons.search),
+        ),
+        onChanged: (value) =>
+            setState(() => customerSearch = value.trim().toLowerCase()),
+      ),
+      const SizedBox(height: 12),
       if (customers.isEmpty)
         const Card(
           child: Padding(
@@ -1379,43 +1444,58 @@ class _ManagerPageState extends State<ManagerPage> {
             child: Center(child: Text('لا يوجد عملاء مسجلون')),
           ),
         ),
-      ...customers.map((raw) {
-        final customer = Map<String, dynamic>.from(raw);
-        return Card(
-          child: ExpansionTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(customer['name']?.toString() ?? ''),
-            subtitle: Text(
-              '${customer['phone']} • ${customer['booking_count']} حجوزات',
+      ...customers
+          .where(
+            (raw) => '${raw['name']} ${raw['phone']}'.toLowerCase().contains(
+              customerSearch,
             ),
-            childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            children: [
-              ListTile(
-                title: const Text('البريد الإلكتروني'),
-                trailing: Text(
-                  (customer['email']?.toString() ?? '').isEmpty
-                      ? 'غير مسجل'
-                      : customer['email'].toString(),
+          )
+          .map((raw) {
+            final customer = Map<String, dynamic>.from(raw);
+            return Card(
+              child: ExpansionTile(
+                leading: const CircleAvatar(child: Icon(Icons.person)),
+                title: Text(customer['name']?.toString() ?? ''),
+                subtitle: Text(
+                  '${customer['phone']} • ${customer['booking_count']} حجوزات',
                 ),
+                childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.card_membership),
+                    title: const Text('باقات العميل'),
+                    subtitle: const Text('منح باقة أو إلغاء باقة حالية'),
+                    trailing: const Icon(Icons.chevron_left),
+                    onTap: () => _manageCustomerPackages(customer),
+                  ),
+                  ListTile(
+                    title: const Text('البريد الإلكتروني'),
+                    trailing: Text(
+                      (customer['email']?.toString() ?? '').isEmpty
+                          ? 'غير مسجل'
+                          : customer['email'].toString(),
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('تاريخ التسجيل'),
+                    trailing: Text(
+                      (customer['date_joined']?.toString() ?? '')
+                          .split('T')
+                          .first,
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('الحجوزات المكتملة'),
+                    trailing: Text('${customer['completed_count']}'),
+                  ),
+                  ListTile(
+                    title: const Text('إجمالي المبالغ المكتملة'),
+                    trailing: Text('${customer['total_spent']} ر.س'),
+                  ),
+                ],
               ),
-              ListTile(
-                title: const Text('تاريخ التسجيل'),
-                trailing: Text(
-                  (customer['date_joined']?.toString() ?? '').split('T').first,
-                ),
-              ),
-              ListTile(
-                title: const Text('الحجوزات المكتملة'),
-                trailing: Text('${customer['completed_count']}'),
-              ),
-              ListTile(
-                title: const Text('إجمالي المبالغ المكتملة'),
-                trailing: Text('${customer['total_spent']} ر.س'),
-              ),
-            ],
-          ),
-        );
-      }),
+            );
+          }),
     ],
   );
 
