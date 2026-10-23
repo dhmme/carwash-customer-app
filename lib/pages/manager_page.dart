@@ -369,15 +369,21 @@ class _ManagerPageState extends State<ManagerPage> {
         ...todayBookings.map((raw) {
           final b = Map<String, dynamic>.from(raw);
           return Card(
-            child: ListTile(
-              leading: const Icon(Icons.schedule),
-              title: Text('${b['time_slot']} — ${b['customer_name']}'),
-              subtitle: Text(
-                '${b['customer_phone']} • ${b['service_name']}\n${b['address_text'] ?? ''}',
-              ),
-              isThreeLine: true,
-              trailing: Text('${b['total_price']} ر.س'),
-              onTap: () => setState(() => tab = 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.schedule),
+                  title: Text('${b['time_slot']} — ${b['customer_name']}'),
+                  subtitle: Text(
+                    '${b['customer_phone']} • ${b['service_name']}\n${b['address_text'] ?? ''}',
+                  ),
+                  isThreeLine: true,
+                  trailing: Text('${b['total_price']} ر.س'),
+                  onTap: () => setState(() => tab = 2),
+                ),
+                _bookingMapButton(b),
+              ],
             ),
           );
         }),
@@ -1406,6 +1412,57 @@ class _ManagerPageState extends State<ManagerPage> {
     );
   }
 
+  Uri? _bookingMapUri(Map<String, dynamic> booking) {
+    final latitude = double.tryParse(booking['latitude']?.toString() ?? '');
+    final longitude = double.tryParse(booking['longitude']?.toString() ?? '');
+    if (latitude == null || longitude == null ||
+        !latitude.isFinite || !longitude.isFinite ||
+        latitude < -90 || latitude > 90 ||
+        longitude < -180 || longitude > 180) {
+      return null;
+    }
+    return Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': '$latitude,$longitude',
+    });
+  }
+
+  Future<void> _openBookingMap(Map<String, dynamic> booking) async {
+    final uri = _bookingMapUri(booking);
+    if (uri == null) return;
+    try {
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+        webOnlyWindowName: '_blank',
+      );
+      if (opened) return;
+    } catch (_) {}
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح الخريطة. حاول مرة أخرى.')),
+      );
+    }
+  }
+
+  Widget _bookingMapButton(Map<String, dynamic> booking) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+    child: Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: TextButton.icon(
+        onPressed: _bookingMapUri(booking) == null
+            ? null
+            : () => _openBookingMap(booking),
+        icon: const Icon(Icons.directions_outlined),
+        label: Text(
+          _bookingMapUri(booking) == null
+              ? 'موقع الحجز غير متوفر'
+              : 'فتح موقع العميل',
+        ),
+      ),
+    ),
+  );
+
   Widget _bookings() => ListView.separated(
     padding: const EdgeInsets.all(16),
     itemCount: bookings.length,
@@ -1413,7 +1470,10 @@ class _ManagerPageState extends State<ManagerPage> {
     itemBuilder: (_, i) {
       final b = bookings[i] as Map<String, dynamic>;
       return Card(
-        child: ListTile(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
           isThreeLine: true,
           title: Text(
             '#${b['id']}  ${b['customer_name']} — ${b['service_name']}',
@@ -1459,6 +1519,9 @@ class _ManagerPageState extends State<ManagerPage> {
                 ),
             ],
           ),
+            ),
+            _bookingMapButton(b),
+          ],
         ),
       );
     },
