@@ -20,6 +20,7 @@ class ManagerPage extends StatefulWidget {
 
 class _ManagerPageState extends State<ManagerPage> {
   int tab = 0;
+  final Set<int> deletingWorkers = {};
   bool loading = true;
   String? error;
   Map<String, dynamic> stats = {};
@@ -1595,6 +1596,50 @@ class _ManagerPageState extends State<ManagerPage> {
     ),
   );
 
+  Future<void> _deleteWorker(Map<String, dynamic> worker) async {
+    final id = worker['id'] as int;
+    if (deletingWorkers.contains(id)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف العامل'),
+        content: Text(
+          'هل تريد حذف العامل ${worker['first_name']} (${worker['username']})؟\n'
+          'سيختفي من قائمة العمال ويتوقف دخوله. تبقى سجلات الشغل والعمليات السابقة محفوظة.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('تراجع'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف العامل'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true || deletingWorkers.contains(id)) return;
+    setState(() => deletingWorkers.add(id));
+    try {
+      await api('workers/$id/', method: 'DELETE');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم حذف العامل وإيقاف دخوله.')),
+      );
+      await loadAll();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر حذف العامل. حاول مرة أخرى.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => deletingWorkers.remove(id));
+    }
+  }
+
   Widget _workers() => ListView(
     padding: const EdgeInsets.all(16),
     children: [
@@ -1610,19 +1655,38 @@ class _ManagerPageState extends State<ManagerPage> {
       ...workers.map((raw) {
         final w = raw as Map<String, dynamic>;
         return Card(
-          child: SwitchListTile(
-            value: w['is_active'] == true,
-            onChanged: (v) async {
-              await api(
-                'workers/${w['id']}/',
-                method: 'PATCH',
-                body: {'is_active': v},
-              );
-              await loadAll();
-            },
-            title: Text(w['first_name'] ?? ''),
-            subtitle: Text(w['username'] ?? ''),
-            secondary: const Icon(Icons.engineering),
+          child: Column(
+            children: [
+              SwitchListTile(
+                value: w['is_active'] == true,
+                onChanged: deletingWorkers.contains(w['id'])
+                    ? null
+                    : (v) async {
+                        await api(
+                          'workers/${w['id']}/',
+                          method: 'PATCH',
+                          body: {'is_active': v},
+                        );
+                        await loadAll();
+                      },
+                title: Text(w['first_name'] ?? ''),
+                subtitle: Text(w['username'] ?? ''),
+                secondary: const Icon(Icons.engineering),
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: deletingWorkers.contains(w['id'])
+                      ? null
+                      : () => _deleteWorker(w),
+                  icon: const Icon(Icons.person_remove_outlined),
+                  label: Text(
+                    deletingWorkers.contains(w['id']) ? 'جارٍ الحذف...' : 'حذف العامل',
+                  ),
+                  style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                ),
+              ),
+            ],
           ),
         );
       }),
