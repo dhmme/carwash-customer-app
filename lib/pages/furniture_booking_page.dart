@@ -320,7 +320,8 @@ class _FurnitureBookingPageState extends State<FurnitureBookingPage> {
                     builder: (_) {
                       final visible = timeSlots.where((s) {
                         final l = s['label'].toString();
-                        return !unavailable.contains(l) &&
+                        return !booked.contains(l) &&
+                            !unavailable.contains(l) &&
                             !isBookingSlotPast(date, s);
                       }).toList();
                       return visible.isEmpty

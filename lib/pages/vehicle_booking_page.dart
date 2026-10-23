@@ -405,7 +405,8 @@ class _VehicleBookingPageState extends State<VehicleBookingPage> {
                     builder: (context) {
                       final visible = timeSlots.where((slot) {
                         final label = slot['label']?.toString() ?? '';
-                        return !unavailable.contains(label) &&
+                        return !booked.contains(label) &&
+                            !unavailable.contains(label) &&
                             !isBookingSlotPast(date, slot);
                       }).toList();
                       if (visible.isEmpty)
