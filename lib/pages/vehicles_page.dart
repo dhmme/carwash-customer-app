@@ -8,49 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import '../session.dart';
 import '../app_theme.dart';
 
-const popularVehicles = <String>[
-  'تويوتا كامري',
-  'تويوتا كورولا',
-  'تويوتا يارس',
-  'تويوتا أفالون',
-  'تويوتا راف فور',
-  'تويوتا فورتشنر',
-  'تويوتا برادو',
-  'تويوتا لاندكروزر',
-  'هوندا أكورد',
-  'هوندا سيفيك',
-  'هوندا CR-V',
-  'هوندا بايلوت',
-  'هيونداي أكسنت',
-  'هيونداي إلنترا',
-  'هيونداي سوناتا',
-  'هيونداي توسان',
-  'هيونداي سنتافي',
-  'كيا بيجاس',
-  'كيا سيراتو',
-  'كيا K5',
-  'كيا سبورتاج',
-  'كيا سورينتو',
-  'نيسان صني',
-  'نيسان ألتيما',
-  'نيسان إكس تريل',
-  'نيسان باترول',
-  'مازدا 3',
-  'مازدا 6',
-  'مازدا CX-5',
-  'فورد تورس',
-  'فورد إكسبلورر',
-  'شفروليه ماليبو',
-  'شفروليه تاهو',
-  'جي إم سي يوكن',
-  'لكزس ES',
-  'لكزس RX',
-  'مرسيدس',
-  'بي إم دبليو',
-  'أودي',
-  'أخرى',
-];
-
 class VehiclesPage extends StatefulWidget {
   final String baseUrl;
   const VehiclesPage({super.key, required this.baseUrl});
@@ -113,84 +70,13 @@ class _VehiclesPageState extends State<VehiclesPage> {
     }
   }
 
-  Future<String?> pickVehicle(BuildContext context, String current) async {
-    final search = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setSearch) {
-          final query = search.text.trim().toLowerCase();
-          final filtered = popularVehicles
-              .where(
-                (name) => query.isEmpty || name.toLowerCase().contains(query),
-              )
-              .toList();
-          return Directionality(
-            textDirection: TextDirection.rtl,
-            child: AlertDialog(
-              title: const Text('اختر نوع السيارة'),
-              content: SizedBox(
-                width: 430,
-                height: 480,
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: search,
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search),
-                        hintText: 'ابحث مثلًا: كامري، أكسنت...',
-                      ),
-                      onChanged: (_) => setSearch(() {}),
-                    ),
-                    const SizedBox(height: 10),
-                    Expanded(
-                      child: filtered.isEmpty
-                          ? const Center(child: Text('لا توجد نتائج'))
-                          : ListView.builder(
-                              itemCount: filtered.length,
-                              itemBuilder: (_, i) {
-                                final name = filtered[i];
-                                return ListTile(
-                                  leading: Icon(
-                                    name == current
-                                        ? Icons.check_circle
-                                        : Icons.directions_car,
-                                    color: name == current
-                                        ? Theme.of(context).colorScheme.primary
-                                        : null,
-                                  ),
-                                  title: Text(name),
-                                  onTap: () =>
-                                      Navigator.pop(dialogContext, name),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('إلغاء'),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Future<void> add() async {
     String category = categories.isEmpty
             ? 'sedan'
-            : categories.first['key'].toString(),
-        vehicle = popularVehicles.first;
+            : categories.first['key'].toString();
     final color = TextEditingController(),
         plate = TextEditingController(),
-        custom = TextEditingController();
+        vehicle = TextEditingController();
     Uint8List? photo;
     String? mime;
     final saved = await showDialog<bool>(
@@ -222,42 +108,27 @@ class _VehiclesPageState extends State<VehiclesPage> {
                       onChanged: (v) => setLocal(() => category = v!),
                     ),
                     const SizedBox(height: 12),
-                    InkWell(
-                      onTap: () async {
-                        final selected = await pickVehicle(context, vehicle);
-                        if (selected != null)
-                          setLocal(() => vehicle = selected);
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'نوع السيارة',
-                          prefixIcon: Icon(Icons.search),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(vehicle)),
-                            const Icon(Icons.arrow_drop_down),
-                          ],
-                        ),
+                    TextField(
+                      controller: vehicle,
+                      textInputAction: TextInputAction.next,
+                      maxLength: 100,
+                      onChanged: (_) => setLocal(() {}),
+                      decoration: const InputDecoration(
+                        labelText: 'نوع السيارة',
+                        hintText: 'مثلا تويوتا كامري',
+                        counterText: '',
                       ),
                     ),
-                    if (vehicle == 'أخرى') ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: custom,
-                        decoration: const InputDecoration(
-                          labelText: 'اكتب نوع السيارة',
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 12),
                     TextField(
                       controller: color,
+                      onChanged: (_) => setLocal(() {}),
                       decoration: const InputDecoration(labelText: 'اللون'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: plate,
+                      onChanged: (_) => setLocal(() {}),
                       decoration: const InputDecoration(
                         labelText: 'لوحة السيارة',
                       ),
@@ -311,7 +182,11 @@ class _VehiclesPageState extends State<VehiclesPage> {
                 child: const Text('إلغاء'),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: vehicle.text.trim().isEmpty ||
+                        color.text.trim().isEmpty ||
+                        plate.text.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(context, true),
                 child: const Text('حفظ'),
               ),
             ],
@@ -319,7 +194,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
         ),
       ),
     );
-    final name = vehicle == 'أخرى' ? custom.text.trim() : vehicle;
+    final name = vehicle.text.trim();
     if (saved == true &&
         name.isNotEmpty &&
         color.text.trim().isNotEmpty &&
