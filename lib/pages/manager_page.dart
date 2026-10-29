@@ -377,12 +377,13 @@ class _ManagerPageState extends State<ManagerPage> {
                   leading: const Icon(Icons.schedule),
                   title: Text('${b['time_slot']} — ${b['customer_name']}'),
                   subtitle: Text(
-                    '${b['customer_phone']} • ${b['service_name']}\n${b['address_text'] ?? ''}',
+                    '${b['customer_phone']}\n${b['address_text'] ?? ''}',
                   ),
                   isThreeLine: true,
                   trailing: Text('${b['total_price']} ر.س'),
                   onTap: () => setState(() => tab = 2),
                 ),
+                _bookingServiceDetails(b),
                 _bookingMapButton(b),
               ],
             ),
@@ -1413,6 +1414,75 @@ class _ManagerPageState extends State<ManagerPage> {
     );
   }
 
+  Widget _bookingServiceDetails(Map<String, dynamic> booking) {
+    final serviceName = booking['service_name']?.toString().trim() ?? '';
+    final groupName = booking['service_group_name']?.toString().trim() ?? '';
+    final serviceItems = (booking['service_items'] as List? ?? const [])
+        .whereType<Map>()
+        .toList();
+    final extras = (booking['add_ons'] as List? ?? const [])
+        .whereType<Map>()
+        .toList();
+
+    String itemLabel(Map item) {
+      final name = item['name']?.toString().trim() ?? '';
+      final quantity = item['quantity'] ?? 1;
+      final unit = item['unit']?.toString().trim() ?? '';
+      return '${name.isEmpty ? 'خدمة' : name} — الكمية: $quantity${unit.isEmpty ? '' : ' $unit'}';
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.pale,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (groupName.isNotEmpty) ...[
+            Text(groupName, style: const TextStyle(color: AppColors.sky)),
+            const SizedBox(height: 6),
+          ],
+          const Text(
+            'الخدمة المطلوبة',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          if (serviceItems.isEmpty)
+            Text(serviceName.isEmpty ? 'تفاصيل الخدمة غير متوفرة' : serviceName)
+          else
+            ...serviceItems.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(itemLabel(item)),
+              ),
+            ),
+          const Divider(height: 20),
+          const Text(
+            'الخدمات الإضافية',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          if (extras.isEmpty)
+            const Text(
+              'لا توجد خدمات إضافية',
+              style: TextStyle(color: AppColors.muted),
+            )
+          else
+            ...extras.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(itemLabel(item)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Uri? _bookingMapUri(Map<String, dynamic> booking) {
     final latitude = double.tryParse(booking['latitude']?.toString() ?? '');
     final longitude = double.tryParse(booking['longitude']?.toString() ?? '');
@@ -1477,7 +1547,7 @@ class _ManagerPageState extends State<ManagerPage> {
             ListTile(
           isThreeLine: true,
           title: Text(
-            '#${b['id']}  ${b['customer_name']} — ${b['service_name']}',
+            '#${b['id']}  ${b['customer_name']}',
           ),
           subtitle: Text(
             '${b['date']} • ${b['time_slot']}\n${b['car_name']} • ${b['total_price']} ر.س',
@@ -1521,6 +1591,7 @@ class _ManagerPageState extends State<ManagerPage> {
             ],
           ),
             ),
+            _bookingServiceDetails(b),
             _bookingMapButton(b),
           ],
         ),
@@ -2158,3 +2229,4 @@ class _ManagerPageState extends State<ManagerPage> {
     );
   }
 }
+
