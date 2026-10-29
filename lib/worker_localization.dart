@@ -63,6 +63,10 @@ class WorkerLocalizations {
   String get additionalServices =>
       _value('الخدمات الإضافية', 'Additional services', 'অতিরিক্ত সেবা');
 
+  String get noAdditionalServices => _value(
+    'لا توجد خدمات إضافية', 'No additional services', 'অতিরিক্ত সেবা নেই');
+  String get quantity => _value('الكمية', 'Quantity', 'পরিমাণ');
+
   String serviceName(String value) {
     final names = <String, List<String>>{
       'غسيل السيارات': ['غسيل السيارات', 'Car wash', 'গাড়ি ধোয়া'],
@@ -91,6 +95,9 @@ class WorkerLocalizations {
         'Bagging floor mats',
         'ফ্লোর ম্যাট ব্যাগে রাখা',
       ],
+      'ملمع كفرات فاخر': ['ملمع كفرات فاخر', 'Premium Tire Shine', 'প্রিমিয়াম টায়ার পলিশ'],
+      'واكس (شامبو)': ['واكس (شامبو)', 'Wax Shampoo', 'ওয়াক্স শ্যাম্পু'],
+      'واكس': ['واكس', 'Wax Shampoo', 'ওয়াক্স শ্যাম্পু'],
       'تلميع الكفرات': ['تلميع الكفرات', 'Tire shine', 'টায়ার পলিশ'],
       'تلميع الإطارات': ['تلميع الإطارات', 'Tire shine', 'টায়ার পলিশ'],
     }[value.trim()];

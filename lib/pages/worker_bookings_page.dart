@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
+import '../widgets/worker_add_ons.dart';
 import '../session.dart';
 import '../worker_localization.dart';
 import '../app_config.dart';
@@ -240,13 +241,7 @@ class _BookingCard extends StatelessWidget {
             if (booking.serviceGroupName.isNotEmpty)
               info(Icons.cleaning_services, localizations.service + ': ' + localizations.serviceName(booking.serviceGroupName)),
             info(Icons.local_car_wash, localizations.washType + ': ' + localizations.serviceLine(booking.serviceName)),
-            if (booking.addOns.isNotEmpty)
-              info(
-                Icons.add_circle_outline,
-                booking.addOns
-                    .map((a) => localizations.serviceName(a['name']?.toString() ?? '') + ' × ' + a['quantity'].toString())
-                    .join('، '),
-              ),
+            WorkerAddOns(addOns: booking.addOns, localizations: localizations),
             info(
               Icons.location_on,
               booking.addressText.isEmpty
