@@ -167,6 +167,7 @@ class _PackagesPageState extends State<PackagesPage> {
         'rejected': 'مرفوضة',
         'expired': 'منتهية',
         'revoked': 'ملغاة من الإدارة',
+        'exhausted': 'مستهلكة بالكامل',
       }[value] ??
       value;
   @override
@@ -198,7 +199,7 @@ class _PackagesPageState extends State<PackagesPage> {
                         leading: const Icon(Icons.confirmation_number),
                         title: Text(p['plan_name'].toString()),
                         subtitle: Text(
-                          '${statusName(p['status'].toString())} • متبقي ${p['remaining_washes']} غسلات\nصالحة حتى: ${p['expires_at']?.toString().split('T').first ?? '-'}',
+                          '${statusName((p['effective_status'] ?? p['status']).toString())} • متبقي ${p['remaining_washes']} غسلات\nصالحة حتى: ${p['expires_at']?.toString().split('T').first ?? '-'}',
                         ),
                       ),
                     ),
