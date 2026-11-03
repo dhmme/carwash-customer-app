@@ -9,6 +9,26 @@ typedef PackageManagerRequest = Future<dynamic> Function(
   Map<String, dynamic>? body,
 );
 
+Future<T?> showPackageDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = false,
+}) async {
+  ModalRoute<dynamic>? dialogRoute;
+  final value = await showDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    builder: (dialogContext) {
+      dialogRoute = ModalRoute.of(dialogContext);
+      return builder(dialogContext);
+    },
+  );
+  // Dialog controls remain mounted until the reverse transition is complete.
+  final route = dialogRoute;
+  if (route != null) await route.completed;
+  return value;
+}
+
 String managerPackageStatus(dynamic status) => switch (status) {
   'active' => 'نشطة',
   'pending' => 'بانتظار الاعتماد',
@@ -37,7 +57,7 @@ Future<bool> revokeCustomerPackage(
   final reason = TextEditingController();
   bool saving = false;
   String? error;
-  final result = await showDialog<bool>(
+  final result = await showPackageDialog<bool>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
@@ -299,7 +319,7 @@ Future<bool> grantCustomerPackage(BuildContext context, Map<String, dynamic> cus
   bool confirmed = false, saving = false;
   String? dialogError;
   final operationReference = newPackageReference();
-  final saved = await showDialog<bool>(
+  final saved = await showPackageDialog<bool>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
@@ -456,7 +476,7 @@ Future<bool> adjustCustomerPackage(
   final reference = newPackageReference();
   bool saving = false;
   String? error;
-  final result = await showDialog<bool>(
+  final result = await showPackageDialog<bool>(
     context: context, barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setLocal) {

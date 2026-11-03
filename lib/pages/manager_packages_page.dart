@@ -49,7 +49,7 @@ class _ManagerPackagesPageState extends State<ManagerPackagesPage> {
 
   Future<void> archive(Map<String, dynamic> plan) async {
     final restore = plan['is_archived'] == true;
-    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+    final confirmed = await showPackageDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: Text(restore ? 'استعادة الباقة' : 'حذف الباقة من البيع'),
       content: Text(restore
         ? 'ستعود الباقة إلى القائمة بحالة موقوفة، ويمكنك تفعيل بيعها بعد مراجعة إعداداتها.'
@@ -180,7 +180,7 @@ Future<bool> editPackagePlan(BuildContext context, PackageManagerRequest request
     final number = int.tryParse(packageNumber(v ?? ''));
     return number == null || number < 1 || number > 10000 ? 'أدخل عددًا من 1 إلى 10000' : null;
   }
-  final saved = await showDialog<bool>(context: context, barrierDismissible: false,
+  final saved = await showPackageDialog<bool>(context: context, barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(builder: (context, setLocal) => PopScope(
       canPop: !saving,
       child: AlertDialog(
@@ -296,7 +296,7 @@ class _PackageMembersManagerPageState extends State<PackageMembersManagerPage> {
   }
   Future<bool> decide(Map<String, dynamic> item, String state) async {
     final approved = state == 'active';
-    final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+    final yes = await showPackageDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: Text(approved ? 'اعتماد الباقة' : 'رفض طلب الشراء'),
       content: Text(approved ? 'بعد التحقق من استلام المبلغ، سيتم تفعيل اشتراك ${item['customer_name']} بشروطه عند الشراء: ${item['washes_count']} غسلات، ${item['price']} ر.س.'
         : 'هل تريد رفض طلب ${item['customer_name']}؟'),
