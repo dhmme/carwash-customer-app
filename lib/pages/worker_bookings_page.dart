@@ -12,6 +12,8 @@ import '../app_config.dart';
 
 const baseUrl = AppConfig.apiBaseUrl;
 
+final _arabicTimePeriod = RegExp(r'[ \t]*(صباح[ًَ]*ا?|مساء[ًَ]*ا?)[ًَ]*');
+
 class WorkerBooking {
   final int id;
   final String date, timeSlot, status, customerName, customerPhone;
@@ -23,6 +25,11 @@ class WorkerBooking {
       addressText;
   final String mapsUrl, totalPrice, paymentMethod;
   final List<Map<String, dynamic>> addOns;
+  String get displayTimeSlot => timeSlot.replaceAllMapped(
+    _arabicTimePeriod,
+    (match) => match[1]!.startsWith('ص') ? ' AM' : ' PM',
+  );
+
   WorkerBooking.fromJson(Map<String, dynamic> j)
     : id = j['id'] ?? 0,
       date = j['date'] ?? '',
@@ -219,7 +226,8 @@ class _BookingCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  booking.timeSlot,
+                  booking.displayTimeSlot,
+                  textDirection: TextDirection.ltr,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
