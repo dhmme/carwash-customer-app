@@ -12,7 +12,15 @@ import '../app_config.dart';
 
 const baseUrl = AppConfig.apiBaseUrl;
 
-final _arabicTimePeriod = RegExp(r'[ \t]*(صباح[ًَ]*ا?|مساء[ًَ]*ا?)[ًَ]*');
+final _workerTimePattern = RegExp(r'^([0-9٠-٩۰-۹]{1,2})(?:[:٫]([0-9٠-٩۰-۹]{2}))?\s*(am|pm|صباح[ًَ]*ا?[ًَ]*|مساء[ًَ]*ا?[ًَ]*)?$', caseSensitive: false);
+
+int _timeNumber(String digits) => int.parse(
+  String.fromCharCodes(digits.codeUnits.map((digit) {
+    if (digit >= 0x0660 && digit <= 0x0669) return digit - 0x0660 + 48;
+    if (digit >= 0x06f0 && digit <= 0x06f9) return digit - 0x06f0 + 48;
+    return digit;
+  })),
+);
 
 class WorkerBooking {
   final int id;
@@ -25,10 +33,36 @@ class WorkerBooking {
       addressText;
   final String mapsUrl, totalPrice, paymentMethod;
   final List<Map<String, dynamic>> addOns;
-  String get displayTimeSlot => timeSlot.replaceAllMapped(
-    _arabicTimePeriod,
-    (match) => match[1]!.startsWith('ص') ? ' AM' : ' PM',
-  );
+  late final _time = _parseTimeSlot();
+  String get displayTimeSlot => _time.label;
+  int get timeOrder => _time.order;
+
+  ({String label, int order}) _parseTimeSlot() {
+    final fallback = (label: timeSlot, order: 25 * 60);
+    final match = _workerTimePattern.firstMatch(timeSlot.trim());
+    if (match == null) return fallback;
+
+    final hour = _timeNumber(match[1]!);
+    final minute = _timeNumber(match[2] ?? '00');
+    final period = match[3]?.toLowerCase();
+    if (hour > 23 || minute > 59 ||
+        (period != null && (hour < 1 || hour > 12))) {
+      return fallback;
+    }
+
+    // The original end-of-day label "12 مساءً" means midnight.
+    final arabicEvening = period?.startsWith('مساء') ?? false;
+    final endOfDay = hour == 12 && arabicEvening;
+    final isPm = period == 'pm' || arabicEvening;
+    final clockHour = period == null ? hour : hour % 12 + (isPm && !endOfDay ? 12 : 0);
+    final displayHour = clockHour % 12 == 0 ? 12 : clockHour % 12;
+    final minutes = minute == 0 ? '' : ':${minute.toString().padLeft(2, '0')}';
+    final suffix = clockHour < 12 ? 'am' : 'pm';
+    return (
+      label: '$displayHour$minutes$suffix',
+      order: (endOfDay ? 24 : clockHour) * 60 + minute,
+    );
+  }
 
   WorkerBooking.fromJson(Map<String, dynamic> j)
     : id = j['id'] ?? 0,
@@ -90,10 +124,12 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
       }
       if (r.statusCode != 200) throw Exception();
       final data = jsonDecode(r.body) as List;
-      if (mounted)
-        setState(
-          () => bookings = data.map((e) => WorkerBooking.fromJson(e)).toList(),
-        );
+      final orderedBookings = data.map((e) => WorkerBooking.fromJson(e)).toList()
+        ..sort((first, second) {
+          final byTime = first.timeOrder.compareTo(second.timeOrder);
+          return byTime == 0 ? first.id.compareTo(second.id) : byTime;
+        });
+      if (mounted) setState(() => bookings = orderedBookings);
     } catch (_) {
       if (mounted) setState(() => error = widget.localizations.loadFailed);
     } finally {
