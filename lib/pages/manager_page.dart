@@ -1343,6 +1343,7 @@ class _ManagerPageState extends State<ManagerPage> {
                   ),
                   DropdownMenuItem(value: 'completed', child: Text('مكتمل')),
                   DropdownMenuItem(value: 'canceled', child: Text('ملغي')),
+                  DropdownMenuItem(value: 'refund_pending', child: Text('الاسترجاع قيد التحقق')),
                 ],
                 onChanged:
                     b['status'] == 'completed' || b['status'] == 'canceled'

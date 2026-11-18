@@ -61,11 +61,13 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     'on_the_way' => 'العامل في الطريق',
     'in_progress' => 'جاري الغسيل',
     'completed' => 'مكتمل',
+    'refund_pending' => 'الاسترجاع قيد التحقق',
     'canceled' => 'ملغي',
     _ => value,
   };
 
   String _paymentStatus(String value) => switch (value) {
+    'refunded' => 'تم استرجاع المبلغ',
     'paid' => 'مدفوع إلكترونيًا',
     'failed' => 'فشل الدفع',
     'expired' => 'انتهت مهلة الدفع',
@@ -145,7 +147,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('إلغاء الحجز'),
         content: Text(
-          'هل تريد إلغاء حجز ${booking['date']}، ${booking['time_slot']}؟',
+          'هل تريد إلغاء حجز ${booking['date']}، ${booking['time_slot']}؟ الإلغاء قبل الموعد بساعة على الأقل. المبلغ المدفوع إلكترونيًا يرجع لوسيلة الدفع الأصلية، وغسلة الباقة ترجع لرصيدها.',
         ),
         actions: [
           TextButton(
@@ -166,8 +168,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         await _load();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تم إلغاء الحجز وإتاحة الوقت من جديد.'),
+            SnackBar(
+              content: Text((jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>)['detail']?.toString() ?? 'تم إلغاء الحجز.'),
             ),
           );
         }
@@ -342,7 +344,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                   final checkoutUrl =
                       booking['payment_checkout_url']?.toString() ?? '';
                   final paymentLabel = _paymentStatus(paymentStatus);
-                  final canCancel = status == 'pending' || status == 'accepted';
+                  final canCancel = status == 'pending' || status == 'accepted' || status == 'refund_pending';
                   return Card(
                     child: Column(
                       children: [

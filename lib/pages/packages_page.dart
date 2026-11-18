@@ -169,6 +169,26 @@ class _PackagesPageState extends State<PackagesPage> {
     if (response.statusCode == 201) load();
   }
 
+  Future<void> refundPackage(Map<String, dynamic> package) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('استرجاع الباقة'),
+      content: const Text('يمكن استرجاع الباقة خلال 7 أيام من الشراء إذا لم تُستخدم أي غسلة. ألغِ مواعيدها القائمة أولًا. سيعود المبلغ لوسيلة الدفع الأصلية ويتوقف رصيد الباقة.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('تراجع')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('تأكيد الاسترجاع'))],
+    ));
+    if (confirmed != true) return;
+    try {
+      final response = await http.post(Uri.parse('${widget.baseUrl}/api/customer-packages/${package['id']}/refund/'), headers: Session.authHeaders);
+      final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['detail']?.toString() ?? 'تعذر إتمام الطلب')));
+      await load();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر معرفة النتيجة. حدّث الصفحة أو تواصل مع الدعم.')));
+    }
+  }
+
   Future<void> openCheckout(String url) async {
     final opened = await launchUrl(
       Uri.parse(url),
@@ -185,6 +205,8 @@ class _PackagesPageState extends State<PackagesPage> {
   String statusName(String value) =>
       {
         'pending': 'بانتظار الاعتماد',
+        'refund_pending': 'قيد التحقق من الاسترجاع',
+        'refunded': 'مستردة',
         'awaiting_payment': 'بانتظار الدفع',
         'active': 'نشطة',
         'rejected': 'مرفوضة',
@@ -221,7 +243,8 @@ class _PackagesPageState extends State<PackagesPage> {
                       child: ListTile(
                         leading: const Icon(Icons.confirmation_number),
                         trailing: (p['payment_checkout_url']?.toString() ?? '').isEmpty
-                            ? null
+                            ? (p['payment_method'] == 'online' && (p['status'] == 'active' || p['status'] == 'refund_pending')
+                                ? TextButton(onPressed: () => refundPackage(p), child: Text(p['status'] == 'refund_pending' ? 'تحقق من الاسترجاع' : 'استرجاع الباقة')) : null)
                             : TextButton(
                                 onPressed: () => openCheckout(p['payment_checkout_url'].toString()),
                                 child: const Text('إكمال الدفع'),
