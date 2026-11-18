@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../session.dart';
 
@@ -50,7 +51,6 @@ class _PackagesPageState extends State<PackagesPage> {
           : {};
       methods = (config['methods'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e))
-          .where((e) => e['requires_gateway'] != true)
           .toList();
       if (methods.isEmpty) {
         methods = [
@@ -125,7 +125,9 @@ class _PackagesPageState extends State<PackagesPage> {
                   ),
                 ),
               const SizedBox(height: 8),
-              const Text('يُفعّل الرصيد بعد مراجعة الإدارة للدفع.'),
+              Text(method == 'online'
+                  ? 'تُفعّل الباقة تلقائيًا بعد نجاح الدفع.'
+                  : 'يُفعّل الرصيد بعد مراجعة الإدارة للدفع.'),
             ],
           ),
           actions: [
@@ -148,6 +150,13 @@ class _PackagesPageState extends State<PackagesPage> {
       body: jsonEncode({'plan': plan['id'], 'payment_method': method}),
     );
     if (!mounted) return;
+    if (response.statusCode == 201 && method == 'online') {
+      final purchase = jsonDecode(response.body) as Map<String, dynamic>;
+      final url = purchase['payment_checkout_url']?.toString() ?? '';
+      await load();
+      if (url.isNotEmpty) await openCheckout(url);
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -160,9 +169,23 @@ class _PackagesPageState extends State<PackagesPage> {
     if (response.statusCode == 201) load();
   }
 
+  Future<void> openCheckout(String url) async {
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_self',
+    );
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح الدفع. حاول من باقاتي.')),
+      );
+    }
+  }
+
   String statusName(String value) =>
       {
         'pending': 'بانتظار الاعتماد',
+        'awaiting_payment': 'بانتظار الدفع',
         'active': 'نشطة',
         'rejected': 'مرفوضة',
         'expired': 'منتهية',
@@ -197,9 +220,15 @@ class _PackagesPageState extends State<PackagesPage> {
                     (p) => Card(
                       child: ListTile(
                         leading: const Icon(Icons.confirmation_number),
+                        trailing: (p['payment_checkout_url']?.toString() ?? '').isEmpty
+                            ? null
+                            : TextButton(
+                                onPressed: () => openCheckout(p['payment_checkout_url'].toString()),
+                                child: const Text('إكمال الدفع'),
+                              ),
                         title: Text(p['plan_name'].toString()),
                         subtitle: Text(
-                          '${statusName((p['effective_status'] ?? p['status']).toString())} • متبقي ${p['remaining_washes']} غسلات\nصالحة حتى: ${p['expires_at']?.toString().split('T').first ?? '-'}',
+                          '${statusName((p['status'] == 'pending' && p['payment_method'] == 'online' ? 'awaiting_payment' : p['effective_status'] ?? p['status']).toString())} • متبقي ${p['remaining_washes']} غسلات\nصالحة حتى: ${p['expires_at']?.toString().split('T').first ?? '-'}',
                         ),
                       ),
                     ),

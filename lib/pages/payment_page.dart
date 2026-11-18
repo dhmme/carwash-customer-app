@@ -197,7 +197,7 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       final booking = jsonDecode(response.body) as Map<String, dynamic>;
-      if (method == 'online') {
+      if (method == 'online' && booking['payment_status'] == 'pending') {
         final checkoutUrl = booking['payment_checkout_url']?.toString() ?? '';
         if (checkoutUrl.isEmpty) {
           setState(
@@ -326,14 +326,6 @@ class _PaymentPageState extends State<PaymentPage> {
                 groupValue: selectedPackageId,
                 onChanged: (value) => setState(() {
                   selectedPackageId = selectedPackageId == value ? null : value;
-                  if (selectedPackageId != null && method == 'online') {
-                    final nonGateway = paymentMethods.where(
-                      (item) => item['requires_gateway'] != true,
-                    );
-                    if (nonGateway.isNotEmpty) {
-                      method = nonGateway.first['code'].toString();
-                    }
-                  }
                   appliedPromo = '';
                   discount = 0;
                   promoController.clear();
@@ -395,11 +387,6 @@ class _PaymentPageState extends State<PaymentPage> {
             )
           else
             ...paymentMethods
-                .where(
-                  (item) =>
-                      selectedPackageId == null ||
-                      item['requires_gateway'] != true,
-                )
                 .map(
                   (item) => RadioListTile<String>(
                     value: item['code']?.toString() ?? '',
