@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../session.dart';
+import '../widgets/pending_payment_notice.dart';
 
 class MyBookingsPage extends StatefulWidget {
   final String baseUrl;
@@ -313,7 +314,9 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('طلباتي')),
-      body: RefreshIndicator(
+      body: Column(children: [
+        PendingPaymentNotice(baseUrl: widget.baseUrl, onChanged: _load),
+        Expanded(child: RefreshIndicator(
         onRefresh: _load,
         child: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -449,7 +452,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                   );
                 },
               ),
-      ),
+      )),
+      ]),
     );
   }
 }

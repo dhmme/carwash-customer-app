@@ -13,6 +13,7 @@ import 'packages_page.dart';
 import '../app_theme.dart';
 import '../session.dart';
 import '../widgets/legal_footer.dart';
+import '../widgets/pending_payment_notice.dart';
 
 class CustomerHomePage extends StatelessWidget {
   static const supportWhatsApp = '966539853212';
@@ -87,6 +88,7 @@ class CustomerHomePage extends StatelessWidget {
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            PendingPaymentNotice(baseUrl: baseUrl),
             Container(
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
