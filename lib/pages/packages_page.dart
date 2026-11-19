@@ -202,19 +202,34 @@ class _PackagesPageState extends State<PackagesPage> {
     }
   }
 
-  String statusName(String value) =>
-      {
-        'pending': 'بانتظار الاعتماد',
-        'refund_pending': 'قيد التحقق من الاسترجاع',
-        'refunded': 'مستردة',
-        'awaiting_payment': 'بانتظار الدفع',
-        'active': 'نشطة',
-        'rejected': 'مرفوضة',
-        'expired': 'منتهية',
-        'revoked': 'ملغاة من الإدارة',
-        'exhausted': 'مستهلكة بالكامل',
-      }[value] ??
-      value;
+  List<Map<String, dynamic>> get activeOwned => owned.where((p) =>
+      p['status'] == 'active' && p['effective_status'] == 'active' &&
+      (int.tryParse('${p['remaining_washes']}') ?? 0) > 0).toList();
+
+  List<Map<String, dynamic>> get pendingOwned => owned.where((p) =>
+      p['status'] == 'pending' &&
+      !['failed', 'expired', 'refunded'].contains(p['payment_status'])).toList();
+
+  List<Map<String, dynamic>> get refundingOwned => owned.where((p) =>
+      p['status'] == 'refund_pending').toList();
+
+  Widget ownedPackageCard(Map<String, dynamic> p) => Card(
+    child: ListTile(
+      leading: const Icon(Icons.confirmation_number),
+      trailing: (p['payment_checkout_url']?.toString() ?? '').isNotEmpty
+          ? TextButton(onPressed: () => openCheckout(p['payment_checkout_url'].toString()), child: const Text('إكمال الدفع'))
+          : p['payment_method'] == 'online' && ['active', 'refund_pending'].contains(p['status'])
+              ? TextButton(onPressed: () => refundPackage(p), child: Text(p['status'] == 'refund_pending' ? 'تحقق من الاسترجاع' : 'استرجاع الباقة'))
+              : null,
+      title: Text(p['plan_name'].toString()),
+      subtitle: Text(p['status'] == 'pending'
+          ? (p['payment_method'] == 'online' ? 'بانتظار إكمال الدفع؛ لم تتفعّل الباقة بعد' : 'طلب الباقة بانتظار الاعتماد')
+          : p['status'] == 'refund_pending'
+              ? 'طلب الاسترجاع قيد التحقق؛ الباقة غير متاحة للاستخدام حاليًا'
+              : 'متبقي ${p['remaining_washes']} غسلات\nصالحة حتى: ${p['expires_at']?.toString().split('T').first ?? '-'}'),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => Directionality(
     textDirection: TextDirection.rtl,
@@ -231,31 +246,22 @@ class _PackagesPageState extends State<PackagesPage> {
                     'باقاتي',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  if (owned.isEmpty)
-                    const Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(18),
-                        child: Text('لا توجد باقات حتى الآن'),
-                      ),
-                    ),
-                  ...owned.map(
-                    (p) => Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.confirmation_number),
-                        trailing: (p['payment_checkout_url']?.toString() ?? '').isEmpty
-                            ? (p['payment_method'] == 'online' && (p['status'] == 'active' || p['status'] == 'refund_pending')
-                                ? TextButton(onPressed: () => refundPackage(p), child: Text(p['status'] == 'refund_pending' ? 'تحقق من الاسترجاع' : 'استرجاع الباقة')) : null)
-                            : TextButton(
-                                onPressed: () => openCheckout(p['payment_checkout_url'].toString()),
-                                child: const Text('إكمال الدفع'),
-                              ),
-                        title: Text(p['plan_name'].toString()),
-                        subtitle: Text(
-                          '${statusName((p['status'] == 'pending' && p['payment_method'] == 'online' ? 'awaiting_payment' : p['effective_status'] ?? p['status']).toString())} • متبقي ${p['remaining_washes']} غسلات\nصالحة حتى: ${p['expires_at']?.toString().split('T').first ?? '-'}',
-                        ),
-                      ),
-                    ),
-                  ),
+                  if (activeOwned.isEmpty)
+                    const Card(child: Padding(
+                      padding: EdgeInsets.all(18),
+                      child: Text('لا توجد باقات سارية حاليًا'),
+                    )),
+                  ...activeOwned.map(ownedPackageCard),
+                  if (pendingOwned.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text('طلبات الباقات بانتظار الإكمال', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    ...pendingOwned.map(ownedPackageCard),
+                  ],
+                  if (refundingOwned.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text('متابعة الاسترجاع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    ...refundingOwned.map(ownedPackageCard),
+                  ],
                   const SizedBox(height: 20),
                   const Text(
                     'الباقات المتاحة',
