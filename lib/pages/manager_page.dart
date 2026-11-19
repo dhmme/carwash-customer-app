@@ -317,6 +317,57 @@ class _ManagerPageState extends State<ManagerPage> {
     );
   }
 
+  Color _bookingStateColor(Map<String, dynamic> booking) => switch (booking['status']) {
+    'canceled' => Colors.redAccent,
+    'refund_pending' => Colors.orange,
+    'pending' => Colors.orange,
+    'completed' => Colors.teal,
+    'accepted' => Colors.green,
+    'on_the_way' || 'in_progress' => AppColors.cerulean,
+    _ => Colors.grey,
+  };
+
+  String _bookingStateName(Map<String, dynamic> booking) => switch (booking['status']) {
+    'canceled' => 'ملغي',
+    'refund_pending' => 'الاسترجاع قيد التحقق',
+    'pending' when booking['payment_status'] == 'pending' => 'بانتظار الدفع',
+    'pending' => 'قيد المعالجة',
+    'accepted' => 'مؤكد',
+    'on_the_way' => 'العامل في الطريق',
+    'in_progress' => 'قيد التنفيذ',
+    'completed' => 'مكتمل',
+    _ => 'حالة غير معروفة',
+  };
+
+  Widget _bookingSummaryBadges(Map<String, dynamic> booking) {
+    final color = _bookingStateColor(booking);
+    final paymentState = switch (booking['payment_status']) {
+      'paid' => 'مدفوع إلكترونيًا',
+      'refunded' => 'تم استرجاع المبلغ',
+      'pending' when booking['payment_method'] == 'online' => 'لم يكتمل الدفع',
+      'expired' => 'انتهت مهلة الدفع',
+      'failed' => 'فشل الدفع',
+      _ => '',
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), border: Border.all(color: color), borderRadius: BorderRadius.circular(18)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(booking['status'] == 'canceled' ? Icons.cancel_outlined : Icons.info_outline, size: 18, color: color),
+            const SizedBox(width: 5),
+            Text(_bookingStateName(booking), style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          ]),
+        ),
+        Chip(avatar: const Icon(Icons.payments_outlined, size: 18), label: Text('طريقة الدفع: ${_paymentName(booking['payment_method'])}')),
+        if (paymentState.isNotEmpty)
+          Chip(avatar: Icon(booking['payment_status'] == 'refunded' ? Icons.currency_exchange : Icons.account_balance_wallet_outlined, size: 18), label: Text(paymentState)),
+      ]),
+    );
+  }
+
   Widget _dashboard() {
     final cards = [
       ('طلبات اليوم', stats['today_total'], Icons.today),
@@ -395,6 +446,7 @@ class _ManagerPageState extends State<ManagerPage> {
                   trailing: Text('${b['total_price']} ر.س'),
                   onTap: () => setState(() => tab = 2),
                 ),
+                _bookingSummaryBadges(b),
                 _bookingServiceDetails(b),
                 _bookingMapButton(b),
               ],
@@ -1331,7 +1383,7 @@ class _ManagerPageState extends State<ManagerPage> {
               DropdownButton<String>(
                 value: b['status'],
                 items: const [
-                  DropdownMenuItem(value: 'pending', child: Text('مؤكد')),
+                  DropdownMenuItem(value: 'pending', child: Text('بانتظار التأكيد / الدفع')),
                   DropdownMenuItem(value: 'accepted', child: Text('مؤكد')),
                   DropdownMenuItem(
                     value: 'on_the_way',
@@ -1346,10 +1398,10 @@ class _ManagerPageState extends State<ManagerPage> {
                   DropdownMenuItem(value: 'refund_pending', child: Text('الاسترجاع قيد التحقق')),
                 ],
                 onChanged:
-                    b['status'] == 'completed' || b['status'] == 'canceled'
+                    b['status'] == 'completed' || b['status'] == 'canceled' || b['status'] == 'refund_pending'
                     ? null
                     : (v) {
-                        if (v != null && v != 'canceled')
+                        if (v != null && v != 'canceled' && v != 'refund_pending' && v != 'pending')
                           setBookingStatus(b['id'], v);
                       },
               ),
@@ -1365,6 +1417,7 @@ class _ManagerPageState extends State<ManagerPage> {
             ],
           ),
             ),
+            _bookingSummaryBadges(b),
             _bookingServiceDetails(b),
             _bookingMapButton(b),
           ],
@@ -1890,7 +1943,7 @@ class _ManagerPageState extends State<ManagerPage> {
       final item = Map<String, dynamic>.from(raw);
       if (item['code'] == code) return item['name']?.toString() ?? code;
     }
-    return code;
+    return const {'cash': 'كاش', 'card': 'شبكة عند الوصول', 'bank_transfer': 'تحويل بنكي', 'online': 'دفع إلكتروني (ميسر)', 'package': 'رصيد الباقة'}[code] ?? (code.isEmpty ? 'غير محددة' : code);
   }
 
   Future<void> _deleteExpense(int id) async {
