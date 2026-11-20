@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
+import '../widgets/manager_worker_bonuses.dart';
 import '../session.dart';
 import 'customer_packages_manager_page.dart';
 import 'manager_packages_page.dart';
@@ -35,6 +36,7 @@ class _ManagerPageState extends State<ManagerPage> {
       invoices = [],
       workers = [],
       customers = [];
+  int bonusRefreshToken = 0;
   List<dynamic> paymentMethods = [];
   List<dynamic> promoCodes = [];
   List<dynamic> packages = [];
@@ -114,6 +116,7 @@ class _ManagerPageState extends State<ManagerPage> {
           bookings = data[6];
           invoices = data[7];
           workers = data[8];
+          bonusRefreshToken++;
           customers = data[9];
           paymentMethods = data[10];
           promoCodes = data[11];
@@ -1549,6 +1552,8 @@ class _ManagerPageState extends State<ManagerPage> {
           label: const Text('إضافة عامل'),
         ),
       ),
+      const SizedBox(height: 12),
+      ManagerWorkerBonuses(baseUrl: baseUrl, refreshToken: bonusRefreshToken),
       const SizedBox(height: 12),
       ...workers.map((raw) {
         final w = raw as Map<String, dynamic>;

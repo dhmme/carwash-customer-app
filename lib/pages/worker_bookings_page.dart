@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../widgets/worker_add_ons.dart';
+import '../widgets/worker_bonus_card.dart';
 import '../session.dart';
 import '../worker_localization.dart';
 import '../app_config.dart';
@@ -98,6 +99,7 @@ class WorkerBookingsPage extends StatefulWidget {
 }
 
 class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
+  final _bonusKey = GlobalKey<WorkerBonusCardState>();
   bool loading = true;
   String? error;
   List<WorkerBooking> bookings = [];
@@ -108,6 +110,7 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
   }
 
   Future<void> loadBookings() async {
+    _bonusKey.currentState?.refresh();
     if (mounted)
       setState(() {
         loading = true;
@@ -192,7 +195,9 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
           ),
       ],
     ),
-    body: RefreshIndicator(
+    body: Column(children: [
+      WorkerBonusCard(key: _bonusKey, baseUrl: baseUrl, localizations: widget.localizations),
+      Expanded(child: RefreshIndicator(
       onRefresh: loadBookings,
       child: loading
           ? const Center(child: CircularProgressIndicator())
@@ -222,7 +227,8 @@ class _WorkerBookingsPageState extends State<WorkerBookingsPage> {
                 onMap: () => launch(bookings[i].mapsUrl),
               ),
             ),
-    ),
+    )),
+    ]),
   );
 }
 

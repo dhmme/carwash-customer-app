@@ -152,6 +152,11 @@ class WorkerLocalizations {
   String get online =>
       _value('مدفوع إلكترونيًا', 'Paid online', 'অনলাইনে পরিশোধিত');
   String get currency => _value('ر.س', 'SAR', 'সৌদি রিয়াল');
+  String get monthlyBonus => _value('بونصك هذا الشهر', 'Your bonus this month', 'এই মাসে আপনার বোনাস');
+  String get bonusCurrency => _value('ر.س', 'SAR', 'সৌদি রিয়াল');
+  String get bonusRecordedByManager => _value('حسب المبلغ المسجل من الإدارة', 'Recorded by management', 'ম্যানেজমেন্টের নথিভুক্ত পরিমাণ');
+  String get bonusLoadFailed => _value('تعذر تحميل البونص؛ اضغط تحديث', 'Unable to load bonus. Tap refresh', 'বোনাস লোড করা যায়নি। রিফ্রেশ করুন');
+
   String get call => _value('اتصال', 'Call', 'কল করুন');
   String get location => _value('الموقع', 'Location', 'লোকেশন');
   String get completeWash => _value(
